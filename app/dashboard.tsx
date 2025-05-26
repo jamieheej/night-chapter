@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from './context/ThemeContext';
@@ -5,6 +6,15 @@ import { SPACING } from './styles/theme';
 
 export default function DashboardScreen() {
   const { theme } = useTheme();
+  const router = useRouter();
+  
+  const handleStartReadingSession = () => {
+    router.push('/(screens)/reading/Timer');
+  };
+
+  const handleSettings = () => {
+    router.push('/(screens)/settings/Settings');
+  };
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.dark }]}>
@@ -25,6 +35,7 @@ export default function DashboardScreen() {
         <View style={styles.cardContainer}>
           <TouchableOpacity 
             style={[styles.card, { backgroundColor: theme.colors.background.card }]}
+            onPress={handleStartReadingSession}
           >
             <Text style={[styles.cardTitle, { color: theme.colors.text.primary }]}>
               Start Reading Session
@@ -47,6 +58,7 @@ export default function DashboardScreen() {
           
           <TouchableOpacity 
             style={[styles.card, { backgroundColor: theme.colors.background.card }]}
+            onPress={handleSettings}
           >
             <Text style={[styles.cardTitle, { color: theme.colors.text.primary }]}>
               Settings
