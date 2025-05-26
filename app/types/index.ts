@@ -48,3 +48,20 @@ export interface UserSettings {
   };
   theme: "dark" | "light" | "system";
 }
+
+export type RootStackParamList = {
+  Home: undefined;
+  ReadingTimer: undefined;
+  dashboard: undefined;
+  "reading/ReadingTimerScreen": undefined;
+  "(screens)/reading/Timer": undefined;
+  "(screens)/reading/journal": {
+    totalDuration: string;
+    sessionsCount: string;
+  };
+  "(screens)/settings/Settings": undefined;
+  "(screens)/settings/Notifications": undefined;
+  "(screens)/settings/Theme": undefined;
+  "(screens)/settings/SignIn": undefined;
+  // Add other screens as needed
+};
