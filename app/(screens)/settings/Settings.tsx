@@ -5,7 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { SPACING } from '../../styles/theme';
 
 export default function Settings() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const router = useRouter();
 
   const handleBack = () => {
@@ -16,7 +16,7 @@ export default function Settings() {
     router.push('/(screens)/settings/Notifications');
   };
 
-  const navigateToTheme = () => {
+  const handleTheme = () => {
     router.push('/(screens)/settings/Theme');
   };
 
@@ -34,7 +34,7 @@ export default function Settings() {
     {
       title: 'Theme',
       description: 'Customize app appearance',
-      onPress: navigateToTheme,
+      onPress: handleTheme,
       icon: '🎨',
     },
     {

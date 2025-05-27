@@ -1,112 +1,117 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { useColorScheme } from 'react-native';
-import { darkTheme, lightTheme } from '../styles/theme';
 
-// Define ThemeType locally
-type ThemeType = typeof darkTheme;
-
-type ThemeContextType = {
-  theme: ThemeType;
-  isDark: boolean;
-  themeMode: string;
-  toggleTheme: () => Promise<void>;
-  setThemeMode: (mode: 'dark' | 'light' | 'system') => Promise<void>;
-};
-
-const ThemeContext = createContext<ThemeContextType>({
-  theme: darkTheme,
-  isDark: true,
-  themeMode: 'system',
-  toggleTheme: async () => {},
-  setThemeMode: async () => {},
-});
-
-type ThemeProviderProps = {
-  children: ReactNode;
-};
-
-export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const deviceTheme = useColorScheme();
-  const [themeMode, setThemeModeState] = useState<'dark' | 'light' | 'system'>('system');
-  const [theme, setTheme] = useState<ThemeType>(deviceTheme === 'dark' ? darkTheme : lightTheme);
-  
-  // Load saved theme preference
-  useEffect(() => {
-    const loadThemePreference = async () => {
-      try {
-        const savedThemeMode = await AsyncStorage.getItem('themeMode');
-        if (savedThemeMode && (savedThemeMode === 'dark' || savedThemeMode === 'light' || savedThemeMode === 'system')) {
-          setThemeModeState(savedThemeMode);
-          
-          if (savedThemeMode === 'dark') {
-            setTheme(darkTheme);
-          } else if (savedThemeMode === 'light') {
-            setTheme(lightTheme);
-          } else {
-            // System default
-            setTheme(deviceTheme === 'dark' ? darkTheme : lightTheme);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading theme preference:', error);
-      }
+// Define your theme types
+interface Theme {
+  colors: {
+    primary: string;
+    background: {
+      dark: string;
+      card: string;
     };
-    
-    loadThemePreference();
-  }, [deviceTheme]);
-  
-  // Update theme when device theme changes (if using system preference)
+    text: {
+      primary: string;
+      secondary: string;
+      tertiary: string;
+    };
+    divider: string;
+    error: string;
+  };
+}
+
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme: () => void;
+  isDark: boolean;
+}
+
+// Default dark theme
+const defaultTheme: Theme = {
+  colors: {
+    primary: '#8B5CF6',
+    background: {
+      dark: '#000000',
+      card: '#1C1C1E',
+    },
+    text: {
+      primary: '#FFFFFF',
+      secondary: '#8E8E93',
+      tertiary: '#48484A',
+    },
+    divider: '#38383A',
+    error: '#FF3B30',
+  },
+};
+
+// Light theme
+const lightTheme: Theme = {
+  colors: {
+    primary: '#8B5CF6',
+    background: {
+      dark: '#FFFFFF',
+      card: '#F2F2F7',
+    },
+    text: {
+      primary: '#000000',
+      secondary: '#3C3C43',
+      tertiary: '#8E8E93',
+    },
+    divider: '#C6C6C8',
+    error: '#FF3B30',
+  },
+};
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [isDark, setIsDark] = useState(true);
+  const [theme, setTheme] = useState<Theme>(defaultTheme);
+
   useEffect(() => {
-    if (themeMode === 'system') {
-      setTheme(deviceTheme === 'dark' ? darkTheme : lightTheme);
-    }
-  }, [deviceTheme, themeMode]);
-  
-  const toggleTheme = async (): Promise<void> => {
-    const newThemeMode = theme.isDark ? 'light' : 'dark';
-    setThemeModeState(newThemeMode as 'dark' | 'light' | 'system');
-    setTheme(theme.isDark ? lightTheme : darkTheme);
-    
+    loadTheme();
+  }, []);
+
+  const loadTheme = async () => {
     try {
-      await AsyncStorage.setItem('themeMode', newThemeMode);
-    } catch (error) {
-      console.error('Error saving theme preference:', error);
-    }
-  };
-  
-  const setThemeMode = async (mode: 'dark' | 'light' | 'system'): Promise<void> => {
-    try {
-      await AsyncStorage.setItem('themeMode', mode);
-      
-      if (mode === 'dark') {
-        setTheme(darkTheme);
-      } else if (mode === 'light') {
-        setTheme(lightTheme);
-      } else {
-        // System default
-        setTheme(deviceTheme === 'dark' ? darkTheme : lightTheme);
+      const savedTheme = await AsyncStorage.getItem('theme');
+      if (savedTheme) {
+        const isDarkMode = savedTheme === 'dark';
+        setIsDark(isDarkMode);
+        setTheme(isDarkMode ? defaultTheme : lightTheme);
       }
-      
-      setThemeModeState(mode);
     } catch (error) {
-      console.error('Error setting theme mode:', error);
+      console.error('Error loading theme:', error);
     }
   };
-  
+
+  const toggleTheme = async () => {
+    try {
+      const newIsDark = !isDark;
+      setIsDark(newIsDark);
+      setTheme(newIsDark ? defaultTheme : lightTheme);
+      await AsyncStorage.setItem('theme', newIsDark ? 'dark' : 'light');
+    } catch (error) {
+      console.error('Error saving theme:', error);
+    }
+  };
+
+  const value = {
+    theme,
+    toggleTheme,
+    isDark,
+  };
+
   return (
-    <ThemeContext.Provider
-      value={{
-        theme,
-        isDark: theme.isDark,
-        themeMode,
-        toggleTheme,
-        setThemeMode,
-      }}
-    >
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
 };
 
-export const useTheme = () => useContext(ThemeContext); 
+export const useTheme = (): ThemeContextType => {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+}; 
