@@ -11,7 +11,7 @@ export interface User {
 export interface ReadingSession {
   id: string;
   date: string;
-  duration: number; // in minutes
+  duration: number; // in seconds
   completed: boolean;
   bookTitle?: string;
   notes?: string;
@@ -19,11 +19,14 @@ export interface ReadingSession {
 
 export interface JournalEntry {
   id: string;
+  title: string;
+  author?: string;
+  tags: string[];
+  notes: string;
+  duration: number; // in seconds
+  sessionsCount: number;
   date: string;
-  content: string;
-  bookTitle?: string;
   mood?: string;
-  tags?: string[];
 }
 
 export interface ReadingStreak {
