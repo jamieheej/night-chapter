@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { SPACING } from '../../styles/theme';
+import { getStreakMessage, ReadingStreak } from '../../utils/streakUtils';
 
 export default function Journal() {
   const { theme } = useTheme();
@@ -29,25 +30,26 @@ export default function Journal() {
   
   const handleSubmit = async () => {
     if (!title.trim()) {
-      Alert.alert('Missing Title', 'Please enter a title for your reading session.');
+      Alert.alert('Missing Title', 'Please enter a book title.');
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      // Save journal entry
       const journalEntry = {
         id: Date.now().toString(),
         title: title.trim(),
+        author: '', // Can be added later via edit
         tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
         notes: notes.trim(),
         duration: totalDuration,
-        sessionsCount,
+        sessionsCount: sessionsCount,
         date: new Date().toISOString(),
+        mood: undefined, // Can be added later via edit
       };
       
-      // Get existing entries
+      // Get existing entries and add the new one
       const existingEntries = await AsyncStorage.getItem('journalEntries');
       const entries = existingEntries ? JSON.parse(existingEntries) : [];
       entries.push(journalEntry);
@@ -55,11 +57,20 @@ export default function Journal() {
       await AsyncStorage.setItem('journalEntries', JSON.stringify(entries));
       
       // Update reading streak
-      await updateReadingStreak();
+      const updatedStreak = await updateReadingStreak();
+      const streakMessage = getStreakMessage(updatedStreak as unknown as ReadingStreak);
       
       // Show success message with streak info
-      showStreakMessage();
-      
+      Alert.alert(
+        'Great job! 🎉',
+        `You've completed your reading session and saved your journal!\n\n${streakMessage}`,
+        [
+          {
+            text: 'Go to Dashboard',
+            onPress: () => router.push('/dashboard'),
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error saving journal entry:', error);
       Alert.alert('Error', 'Failed to save your journal entry. Please try again.');

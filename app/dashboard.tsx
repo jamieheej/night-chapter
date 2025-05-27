@@ -1,13 +1,28 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from './context/ThemeContext';
 import { SPACING } from './styles/theme';
+import { getReadingStreak, ReadingStreak } from './utils/streakUtils';
 
 export default function DashboardScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  
+  const [streak, setStreak] = useState<ReadingStreak | null>(null);
+
+  useEffect(() => {
+    loadStreak();
+  }, []);
+
+  const loadStreak = async () => {
+    try {
+      const currentStreak = await getReadingStreak();
+      setStreak(currentStreak);
+    } catch (error) {
+      console.error('Error loading streak:', error);
+    }
+  };
+
   const handleStartReadingSession = () => {
     router.push('/(screens)/reading/Timer');
   };
@@ -36,6 +51,20 @@ export default function DashboardScreen() {
           Your mindful reading companion for better sleep.
         </Text>
         
+        {streak && (
+          <View style={[styles.streakCard, { backgroundColor: theme.colors.background.card }]}>
+            <Text style={[styles.streakTitle, { color: theme.colors.text.primary }]}>
+              Reading Streak 🔥
+            </Text>
+            <Text style={[styles.streakCurrent, { color: theme.colors.primary }]}>
+              {streak.currentStreak} {streak.currentStreak === 1 ? 'day' : 'days'}
+            </Text>
+            <Text style={[styles.streakLongest, { color: theme.colors.text.secondary }]}>
+              Longest: {streak.longestStreak} {streak.longestStreak === 1 ? 'day' : 'days'}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.cardContainer}>
           <TouchableOpacity 
             style={[styles.card, { backgroundColor: theme.colors.background.card }]}
@@ -118,6 +147,25 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   cardDescription: {
+    fontSize: 14,
+  },
+  streakCard: {
+    borderRadius: 12,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    alignItems: 'center',
+  },
+  streakTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: SPACING.sm,
+  },
+  streakCurrent: {
+    fontSize: 32,
+    fontWeight: '700',
+    marginBottom: SPACING.xs,
+  },
+  streakLongest: {
     fontSize: 14,
   },
 }); 
