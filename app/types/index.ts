@@ -63,5 +63,18 @@ export type RootStackParamList = {
   "(screens)/settings/Notifications": undefined;
   "(screens)/settings/Theme": undefined;
   "(screens)/settings/SignIn": undefined;
-  // Add other screens as needed
+  "(screens)/journal/Journals": undefined;
+  "(screens)/journal/CreateJournal": undefined;
+  "(screens)/journal/Notes": {
+    bookTitle: string;
+    bookData: string;
+  };
+  "(screens)/journal/NoteDetail": {
+    noteId: string;
+    noteData: string;
+  };
+  "(screens)/journal/EditNote": {
+    noteId: string;
+    noteData: string;
+  };
 };

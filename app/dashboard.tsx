@@ -15,6 +15,10 @@ export default function DashboardScreen() {
   const handleSettings = () => {
     router.push('/(screens)/settings/Settings');
   };
+
+  const handleReadingJournal = () => {
+    router.push('/(screens)/journal/Journals');
+  };
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.dark }]}>
@@ -47,6 +51,7 @@ export default function DashboardScreen() {
           
           <TouchableOpacity 
             style={[styles.card, { backgroundColor: theme.colors.background.card }]}
+            onPress={handleReadingJournal}
           >
             <Text style={[styles.cardTitle, { color: theme.colors.text.primary }]}>
               Reading Journal
