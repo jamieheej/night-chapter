@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { SPACING } from '../../styles/theme';
+import { getStreakMessage, updateReadingStreak } from '../../utils/streakUtils';
 
 type ReadingTimerScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ReadingTimer'>;
 
@@ -87,7 +88,7 @@ const ReadingTimerScreen: React.FC = () => {
     return () => clearInterval(interval);
   }, [isRunning, timeRemaining]);
 
-  const handleSessionComplete = () => {
+  const handleSessionComplete = async () => {
     const newSession: Session = {
       duration: originalTime,
       completedAt: new Date().toISOString(),
@@ -95,20 +96,61 @@ const ReadingTimerScreen: React.FC = () => {
     
     setCompletedSessions(prev => [...prev, newSession]);
     
-    Alert.alert(
-      'Session Complete!',
-      'Congratulations! You\'ve completed your reading session.',
-      [
-        {
-          text: 'Read More',
-          onPress: handleReadMore,
-        },
-        {
-          text: 'End Session',
-          onPress: handleEndSession,
-        },
-      ]
-    );
+    try {
+      // Update reading streak
+      const updatedStreak = await updateReadingStreak();
+      const streakMessage = getStreakMessage(updatedStreak);
+      
+      Alert.alert(
+        'Session Complete! 🎉',
+        `Congratulations! You've completed your reading session.\n\n${streakMessage}`,
+        [
+          {
+            text: 'Add Journal Entry',
+            onPress: () => {
+              const totalDuration = getTotalCompletedTime();
+              router.push({
+                pathname: '/(screens)/reading/Journal',
+                params: {
+                  totalDuration: totalDuration.toString(),
+                  sessionsCount: completedSessions.length.toString(),
+                },
+              });
+            },
+          },
+          {
+            text: 'Finish',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error updating streak:', error);
+      // Fallback to original alert
+      Alert.alert(
+        'Session Complete!',
+        'Congratulations! You\'ve completed your reading session.',
+        [
+          {
+            text: 'Add Journal Entry',
+            onPress: () => {
+              const totalDuration = getTotalCompletedTime();
+              router.push({
+                pathname: '/(screens)/reading/Journal',
+                params: {
+                  totalDuration: totalDuration.toString(),
+                  sessionsCount: completedSessions.length.toString(),
+                },
+              });
+            },
+          },
+          {
+            text: 'Finish',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    }
   };
   
   const handleReadMore = () => {
