@@ -43,6 +43,12 @@ export default function Settings() {
       onPress: navigateToSignIn,
       icon: '👤',
     },
+    {
+      title: 'Focus Mode',
+      description: 'Block distractions during reading',
+      onPress: () => router.push('/(screens)/settings/FocusMode'),
+      icon: '🎯',
+    },
   ];
 
   return (
