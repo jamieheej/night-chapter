@@ -4,9 +4,11 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import FocusOverlay from '../../components/FocusOverlay';
 import { useTheme } from '../../context/ThemeContext';
 import { SPACING } from '../../styles/theme';
+import { endFocusSession, getFocusModeSettings, startFocusSession } from '../../utils/focusMode';
 import { getStreakMessage, updateReadingStreak } from '../../utils/streakUtils';
 
 type ReadingTimerScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ReadingTimer'>;
@@ -39,6 +41,8 @@ const ReadingTimerScreen: React.FC = () => {
   const [alarm, setAlarm] = useState<boolean>(true);
   const [existingSchedule, setExistingSchedule] = useState<TimerSchedule | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [showFocusOverlay, setShowFocusOverlay] = useState(false);
+  const [focusModeEnabled, setFocusModeEnabled] = useState(false);
 
   const timeOptions = [
     { label: '15 min', value: 15 * 60 },
@@ -87,6 +91,31 @@ const ReadingTimerScreen: React.FC = () => {
     
     return () => clearInterval(interval);
   }, [isRunning, timeRemaining]);
+
+  useEffect(() => {
+    loadFocusSettings();
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [isRunning, focusModeEnabled]);
+
+  const loadFocusSettings = async () => {
+    try {
+      const settings = await getFocusModeSettings();
+      setFocusModeEnabled(settings.enabled);
+    } catch (error) {
+      console.error('Error loading focus settings:', error);
+    }
+  };
+
+  const handleAppStateChange = (nextAppState: string) => {
+    if (isRunning && focusModeEnabled && nextAppState === 'background') {
+      // Show focus overlay when app goes to background during timer
+      setShowFocusOverlay(true);
+    }
+  };
 
   const handleSessionComplete = async () => {
     const newSession: Session = {
@@ -151,6 +180,12 @@ const ReadingTimerScreen: React.FC = () => {
         ]
       );
     }
+    
+    // End focus session
+    if (focusModeEnabled) {
+      await endFocusSession();
+      setShowFocusOverlay(false);
+    }
   };
   
   const handleReadMore = () => {
@@ -180,13 +215,31 @@ const ReadingTimerScreen: React.FC = () => {
     return `${mins} min`;
   };
 
-  const handleStartPause = () => {
-    setIsRunning(!isRunning);
+  const handleStartPause = async () => {
+    if (!isRunning) {
+      // Starting timer
+      setIsRunning(true);
+      if (focusModeEnabled) {
+        await startFocusSession(timeRemaining);
+        setShowFocusOverlay(true);
+      }
+    } else {
+      // Pausing timer
+      setIsRunning(false);
+      if (focusModeEnabled) {
+        await endFocusSession();
+        setShowFocusOverlay(false);
+      }
+    }
   };
   
-  const handleReset = () => {
+  const handleReset = async () => {
     setIsRunning(false);
     setTimeRemaining(originalTime);
+    if (focusModeEnabled) {
+      await endFocusSession();
+      setShowFocusOverlay(false);
+    }
   };
   
   const handleTimeSelect = (newTime: number) => {
@@ -221,6 +274,17 @@ const ReadingTimerScreen: React.FC = () => {
   
   const getTotalCompletedTime = () => {
     return completedSessions.reduce((sum, session) => sum + session.duration, 0);
+  };
+
+  const handleFocusOverlayClose = () => {
+    setShowFocusOverlay(false);
+  };
+
+  const handleEndFocusSession = async () => {
+    await endFocusSession();
+    setShowFocusOverlay(false);
+    setIsRunning(false);
+    setTimeRemaining(originalTime);
   };
 
   if (loading) {
@@ -334,6 +398,12 @@ const ReadingTimerScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+      
+      <FocusOverlay
+        visible={showFocusOverlay}
+        onRequestClose={handleFocusOverlayClose}
+        onEndSession={handleEndFocusSession}
+      />
     </SafeAreaView>
   );
 };
