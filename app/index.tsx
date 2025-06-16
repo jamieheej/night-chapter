@@ -1,31 +1,40 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from './context/AuthContext';
 import { useTheme } from './context/ThemeContext';
 import { SPACING } from './styles/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  const { signInWithApple, signInWithGoogle, signInAsGuest } = useAuth();
   
-  const handleAppleLogin = () => {
-    // Implement Apple login logic
-    console.log('Apple login pressed');
-    // After successful login:
-    router.replace('/dashboard');
+  const handleAppleLogin = async () => {
+    try {
+      await signInWithApple();
+      router.replace('/dashboard');
+    } catch (error) {
+      console.error('Apple login error:', error);
+    }
   };
   
-  const handleGoogleLogin = () => {
-    // Implement Google login logic
-    console.log('Google login pressed');
-    // After successful login:
-    router.replace('/dashboard');
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithGoogle();
+      router.replace('/dashboard');
+    } catch (error) {
+      console.error('Google login error:', error);
+    }
   };
   
-  const handleGuestMode = () => {
-    // Implement guest mode logic
-    console.log('Guest mode pressed');
-    router.replace('/dashboard');
+  const handleGuestMode = async () => {
+    try {
+      await signInAsGuest();
+      router.replace('/dashboard');
+    } catch (error) {
+      console.error('Guest mode error:', error);
+    }
   };
   
   return (
@@ -40,9 +49,8 @@ export default function HomeScreen() {
       </View>
       
       <View style={styles.imageContainer}>
-        {/* You can add an illustration or logo here */}
         <View style={[styles.imagePlaceholder, { backgroundColor: theme.colors.background.card }]}>
-          <Text style={{ color: theme.colors.text.secondary }}>App Logo/Illustration</Text>
+          <Text style={{ color: theme.colors.text.secondary }}>📚</Text>
         </View>
       </View>
       

@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import SplashScreen from './components/SplashScreen';
+import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 
 export default function RootLayout() {
@@ -20,12 +21,13 @@ export default function RootLayout() {
   }
   
   return (
-    <ThemeProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(screens)" options={{ headerShown: false }} />
+        </Stack>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
