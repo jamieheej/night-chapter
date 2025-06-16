@@ -1,42 +1,59 @@
 {
   "expo": {
-    "name": "night-chapter",
+    "name": "NightChapter",
     "slug": "night-chapter",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "nightchapter",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.comfortstudio.nightchapter",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to authenticate"
+      },
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "config": {
+        "googleSignIn": {
+          "reservedClientId": "com.googleusercontent.apps.317821380334-e4f00v7sune7r2tt3len5flo0qak11gt"
+        }
+      }
     },
     "android": {
+      "package": "com.comfortstudio.nightchapter",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
+      "expo-apple-authentication",
       [
-        "expo-splash-screen",
+        "expo-notifications",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff"
         }
-      ]
+      ],
+      "expo-router",
+      "@react-native-google-signin/google-signin"
     ],
-    "experiments": {
-      "typedRoutes": true
-    }
+    "scheme": "nightchapter",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "69babbab-190f-4dbc-bdd3-9433cc437143"
+      }
+    },
+    "owner": "jamieheej"
   }
 }

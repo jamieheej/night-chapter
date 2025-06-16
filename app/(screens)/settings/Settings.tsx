@@ -1,11 +1,13 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { SPACING } from '../../styles/theme';
 
 export default function Settings() {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
 
   const handleBack = () => {
@@ -20,8 +22,12 @@ export default function Settings() {
     router.push('/(screens)/settings/Theme');
   };
 
-  const navigateToSignIn = () => {
-    router.push('/(screens)/settings/SignIn');
+  const handleAccount = () => {
+    if (user?.provider === 'guest') {
+      router.push('/(screens)/auth/SignIn');
+    } else {
+      router.push('/(screens)/settings/Account');
+    }
   };
 
   const settingsOptions = [
@@ -38,10 +44,12 @@ export default function Settings() {
       icon: '🎨',
     },
     {
-      title: 'Sign In',
-      description: 'Manage your account and sync data',
-      onPress: navigateToSignIn,
-      icon: '👤',
+      title: user?.provider === 'guest' ? 'Sign In' : 'Account',
+      description: user?.provider === 'guest' 
+        ? 'Sign in for cloud sync and premium features'
+        : `${user?.email} ${user?.isPremium ? '(Premium)' : ''}`,
+      onPress: handleAccount,
+      icon: user?.provider === 'guest' ? '��' : '⭐',
     },
     {
       title: 'Focus Mode',

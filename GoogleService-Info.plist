@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>317821380334-e4f00v7sune7r2tt3len5flo0qak11gt.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.317821380334-e4f00v7sune7r2tt3len5flo0qak11gt</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDMvEZnq1S6hdm7qFN8niptcCCLyqtvVbo</string>
+	<key>GCM_SENDER_ID</key>
+	<string>317821380334</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.comfortstudio.nightchapter</string>
+	<key>PROJECT_ID</key>
+	<string>night-chapter-d527e</string>
+	<key>STORAGE_BUCKET</key>
+	<string>night-chapter-d527e.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:317821380334:ios:b7a753f95e5bb602d675ff</string>
+</dict>
+</plist>
