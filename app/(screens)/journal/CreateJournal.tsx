@@ -1,15 +1,18 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import * as JournalStorage from '../../services/journalStorage';
 import { SPACING } from '../../styles/theme';
+import { JournalEntry } from '../../types';
 
 const MOOD_OPTIONS = ['😊', '😌', '🤔', '😴', '📚', '💭', '✨', '🔥'];
 
 export default function CreateJournal() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
   const [bookTitle, setBookTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [content, setContent] = useState('');
@@ -33,10 +36,15 @@ export default function CreateJournal() {
       return;
     }
 
+    if (!user) {
+      Alert.alert('Error', 'You must be signed in to create a journal entry.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const journalEntry = {
+      const journalEntry: JournalEntry = {
         id: Date.now().toString(),
         title: bookTitle.trim(),
         author: author.trim() || undefined,
@@ -48,12 +56,7 @@ export default function CreateJournal() {
         mood: selectedMood || undefined,
       };
 
-      // Get existing entries
-      const existingEntries = await AsyncStorage.getItem('journalEntries');
-      const entries = existingEntries ? JSON.parse(existingEntries) : [];
-      entries.push(journalEntry);
-
-      await AsyncStorage.setItem('journalEntries', JSON.stringify(entries));
+      await JournalStorage.saveJournalEntry(journalEntry, user.id, user.provider === 'guest');
 
       Alert.alert(
         'Journal Saved!',

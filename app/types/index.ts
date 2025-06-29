@@ -23,10 +23,15 @@ export interface JournalEntry {
   author?: string;
   tags: string[];
   notes: string;
-  duration: number; // in seconds
+  duration: number;
   sessionsCount: number;
   date: string;
   mood?: string;
+  thumbnail?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
+  deletedAt?: string;
 }
 
 export interface ReadingStreak {

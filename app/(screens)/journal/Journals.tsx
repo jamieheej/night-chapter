@@ -1,22 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import * as JournalStorage from '../../services/journalStorage';
 import { SPACING } from '../../styles/theme';
-
-interface JournalEntry {
-  id: string;
-  title: string;
-  author?: string;
-  tags: string[];
-  notes: string;
-  duration: number;
-  sessionsCount: number;
-  date: string;
-  mood?: string;
-  thumbnail?: string;
-}
+import { JournalEntry } from '../../types';
 
 interface BookGroup {
   title: string;
@@ -31,26 +20,24 @@ interface BookGroup {
 export default function Journals() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
   const [bookGroups, setBookGroups] = useState<BookGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
-      loadJournalEntries();
-    }, [])
+      loadEntries();
+    }, [user])
   );
 
-  const loadJournalEntries = async () => {
+  const loadEntries = async () => {
     try {
       setLoading(true);
-      const entriesData = await AsyncStorage.getItem('journalEntries');
-      if (entriesData) {
-        const entries: JournalEntry[] = JSON.parse(entriesData);
-        const grouped = groupEntriesByBook(entries);
-        setBookGroups(grouped);
-      } else {
-        setBookGroups([]);
-      }
+      if (!user) return;
+
+      const entries = await JournalStorage.loadJournalEntries(user.id, user.provider === 'guest');
+      const grouped = groupEntriesByBook(entries);
+      setBookGroups(grouped);
     } catch (error) {
       console.error('Error loading journal entries:', error);
       setBookGroups([]);
@@ -62,7 +49,8 @@ export default function Journals() {
   const groupEntriesByBook = (entries: JournalEntry[]): BookGroup[] => {
     const groups: { [key: string]: BookGroup } = {};
 
-    entries.forEach(entry => {
+    // Filter out deleted entries before grouping
+    entries.filter(entry => !entry.deleted).forEach(entry => {
       const key = entry.title.toLowerCase();
       if (!groups[key]) {
         groups[key] = {

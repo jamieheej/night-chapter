@@ -14,6 +14,7 @@ import {
 } from 'firebase/auth';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { auth } from '../firebase/config';
+import * as JournalStorage from '../services/journalStorage';
 
 // Configure Google Sign-In
 GoogleSignin.configure({
@@ -81,6 +82,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       provider: providerName,
       isPremium: false, // TODO: Check from Firestore
     };
+
+    // Check if there was a guest user and migrate their data
+    const storedUser = await AsyncStorage.getItem('user');
+    if (storedUser) {
+      const previousUser = JSON.parse(storedUser);
+      if (previousUser.provider === 'guest') {
+        try {
+          await JournalStorage.migrateGuestEntriesToFirestore(userData.id);
+        } catch (error) {
+          console.error('Error migrating guest data:', error);
+        }
+      }
+    }
 
     await saveUser(userData);
   };

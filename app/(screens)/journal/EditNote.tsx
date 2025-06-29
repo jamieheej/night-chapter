@@ -1,29 +1,20 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import * as JournalStorage from '../../services/journalStorage';
 import { SPACING } from '../../styles/theme';
+import { JournalEntry } from '../../types';
 
 const MOOD_OPTIONS = ['😊', '😌', '🤔', '😴', '📚', '💭', '✨', '🔥'];
-
-interface JournalEntry {
-  id: string;
-  title: string;
-  author?: string;
-  tags: string[];
-  notes: string;
-  duration: number;
-  sessionsCount: number;
-  date: string;
-  mood?: string;
-}
 
 export default function EditNote() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
   const params = useLocalSearchParams();
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const noteData: JournalEntry = JSON.parse(params.noteData as string);
   
   const [bookTitle, setBookTitle] = useState(noteData.title);
@@ -31,38 +22,10 @@ export default function EditNote() {
   const [content, setContent] = useState(noteData.notes);
   const [tags, setTags] = useState(noteData.tags.join(', '));
   const [selectedMood, setSelectedMood] = useState(noteData.mood || '');
-  const [sessionTime, setSessionTime] = useState(Math.floor(noteData.duration / 60).toString());
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sessionTime, setSessionTime] = useState(String(Math.floor(noteData.duration / 60)));
 
   const handleBack = () => {
-    // Check if there are unsaved changes
-    const hasChanges = 
-      bookTitle !== noteData.title ||
-      author !== (noteData.author || '') ||
-      content !== noteData.notes ||
-      tags !== noteData.tags.join(', ') ||
-      selectedMood !== (noteData.mood || '') ||
-      sessionTime !== Math.floor(noteData.duration / 60).toString();
-
-    if (hasChanges) {
-      Alert.alert(
-        'Unsaved Changes',
-        'You have unsaved changes. Are you sure you want to go back?',
-        [
-          {
-            text: 'Stay',
-            style: 'cancel',
-          },
-          {
-            text: 'Discard Changes',
-            style: 'destructive',
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    } else {
-      router.back();
-    }
+    router.back();
   };
 
   const handleSave = async () => {
@@ -73,6 +36,11 @@ export default function EditNote() {
 
     if (!content.trim()) {
       Alert.alert('Missing Content', 'Please add some notes about your reading session.');
+      return;
+    }
+
+    if (!user) {
+      Alert.alert('Error', 'You must be signed in to update a journal entry.');
       return;
     }
 
@@ -89,29 +57,18 @@ export default function EditNote() {
         mood: selectedMood || undefined,
       };
 
-      // Get existing entries
-      const existingEntries = await AsyncStorage.getItem('journalEntries');
-      const entries: JournalEntry[] = existingEntries ? JSON.parse(existingEntries) : [];
+      await JournalStorage.updateJournalEntry(updatedEntry, user.id, user.provider === 'guest');
       
-      // Find and update the entry
-      const entryIndex = entries.findIndex(entry => entry.id === noteData.id);
-      if (entryIndex !== -1) {
-        entries[entryIndex] = updatedEntry;
-        await AsyncStorage.setItem('journalEntries', JSON.stringify(entries));
-        
-        Alert.alert(
-          'Note Updated!',
-          'Your journal entry has been updated successfully.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ]
-        );
-      } else {
-        throw new Error('Entry not found');
-      }
+      Alert.alert(
+        'Note Updated!',
+        'Your journal entry has been updated successfully.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error updating journal entry:', error);
       Alert.alert('Error', 'Failed to update your journal entry. Please try again.');

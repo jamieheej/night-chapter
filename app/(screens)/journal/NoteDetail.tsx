@@ -1,59 +1,51 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import * as JournalStorage from "../../services/journalStorage";
 import { SPACING } from "../../styles/theme";
-
-interface JournalEntry {
-  id: string;
-  title: string;
-  author?: string;
-  tags: string[];
-  notes: string;
-  duration: number;
-  sessionsCount: number;
-  date: string;
-  mood?: string;
-}
+import { JournalEntry } from "../../types";
 
 export default function NoteDetail() {
   const { theme } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [noteData, setNoteData] = useState<JournalEntry>(
-    JSON.parse(params.noteData as string)
-  );
+  const [noteData, setNoteData] = useState<JournalEntry | null>(null);
 
   // Reload note data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      if (params.noteData) {
+        // Initialize with data from params first
+        setNoteData(JSON.parse(params.noteData as string));
+      }
       loadNoteData();
-    }, [params.noteId])
+    }, [params.noteId, params.noteData])
   );
 
   const loadNoteData = async () => {
     try {
-      const existingEntries = await AsyncStorage.getItem("journalEntries");
-      const entries: JournalEntry[] = existingEntries
-        ? JSON.parse(existingEntries)
-        : [];
+      if (!user) return;
 
+      const entries = await JournalStorage.loadJournalEntries(user.id, user.provider === 'guest');
       const updatedNote = entries.find((entry) => entry.id === params.noteId);
+      
       if (updatedNote) {
         setNoteData(updatedNote);
-      } else {
-        // Note was deleted, go back
+      } else if (!params.noteData) {
+        // Only go back if we don't have initial data from params
         router.back();
       }
     } catch (error) {
@@ -69,7 +61,7 @@ export default function NoteDetail() {
     router.push({
       pathname: "/(screens)/journal/EditNote",
       params: {
-        noteId: noteData.id,
+        noteId: noteData?.id,
         noteData: JSON.stringify(noteData),
       },
     });
@@ -77,6 +69,8 @@ export default function NoteDetail() {
 
   const handleShare = async () => {
     try {
+      if (!noteData) return;
+
       const shareContent = `📚 Reading Journal Entry
 
 Book: ${noteData.title}${noteData.author ? `\nAuthor: ${noteData.author}` : ""}
@@ -102,6 +96,8 @@ Shared from NightChapter`;
   };
 
   const handleDelete = () => {
+    if (!noteData) return;
+
     Alert.alert(
       "Delete Note",
       "Are you sure you want to delete this journal entry? This action cannot be undone.",
@@ -120,22 +116,12 @@ Shared from NightChapter`;
   };
 
   const confirmDelete = async () => {
+    if (!user || !noteData) return;
+    
     setIsDeleting(true);
 
     try {
-      const existingEntries = await AsyncStorage.getItem("journalEntries");
-      const entries: JournalEntry[] = existingEntries
-        ? JSON.parse(existingEntries)
-        : [];
-
-      // Filter out the entry to delete
-      const updatedEntries = entries.filter(
-        (entry) => entry.id !== noteData.id
-      );
-      await AsyncStorage.setItem(
-        "journalEntries",
-        JSON.stringify(updatedEntries)
-      );
+      await JournalStorage.deleteJournalEntry(noteData.id, user.id, user.provider === 'guest');
 
       Alert.alert(
         "Note Deleted",
@@ -144,7 +130,6 @@ Shared from NightChapter`;
           {
             text: "OK",
             onPress: () => {
-              // Go back to the previous screen (Notes or Journals)
               router.back();
             },
           },
@@ -180,6 +165,35 @@ Shared from NightChapter`;
     }
     return `${mins}m`;
   };
+
+  if (!noteData) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background.dark },
+        ]}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Text
+              style={[
+                styles.backButtonText,
+                { color: theme.colors.text.primary },
+              ]}
+            >
+              ← Back
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.content, styles.loadingContainer]}>
+          <Text style={[styles.loadingText, { color: theme.colors.text.primary }]}>
+            Loading note...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView
@@ -427,5 +441,14 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: "500",
   },
 });
