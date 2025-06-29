@@ -1,72 +1,67 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import * as JournalStorage from '../../services/journalStorage';
 import { SPACING } from '../../styles/theme';
-
-interface JournalEntry {
-  id: string;
-  title: string;
-  author?: string;
-  tags: string[];
-  notes: string;
-  duration: number;
-  sessionsCount: number;
-  date: string;
-  mood?: string;
-}
+import { JournalEntry } from '../../types';
 
 export default function Notes() {
   const { theme } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { user } = useAuth();
   const [notes, setNotes] = useState<JournalEntry[]>([]);
   const [bookData, setBookData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   
   const bookTitle = params.bookTitle as string;
   
   // Reload data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      loadNotesForBook();
-    }, [bookTitle])
+      if (user) {
+        loadNotesForBook();
+      }
+    }, [bookTitle, user])
   );
 
   const loadNotesForBook = async () => {
     try {
-      const entriesData = await AsyncStorage.getItem('journalEntries');
-      if (entriesData) {
-        const entries: JournalEntry[] = JSON.parse(entriesData);
-        const bookEntries = entries.filter(entry => 
-          entry.title.toLowerCase() === bookTitle.toLowerCase()
+      setLoading(true);
+      const entries = await JournalStorage.loadJournalEntries(user!.id, user!.provider === 'guest');
+      const bookEntries = entries.filter(entry => 
+        entry.title.toLowerCase() === bookTitle.toLowerCase() &&
+        !entry.deleted
+      );
+      
+      if (bookEntries.length > 0) {
+        const sortedNotes = bookEntries.sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
         );
+        setNotes(sortedNotes);
         
-        if (bookEntries.length > 0) {
-          const sortedNotes = bookEntries.sort((a, b) => 
-            new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-          setNotes(sortedNotes);
-          
-          // Recalculate book data
-          const totalDuration = bookEntries.reduce((sum, entry) => sum + entry.duration, 0);
-          const allTags = [...new Set(bookEntries.flatMap(entry => entry.tags))];
-          
-          setBookData({
-            title: bookTitle,
-            author: bookEntries[0].author,
-            entries: bookEntries,
-            totalSessions: bookEntries.length,
-            totalDuration,
-            tags: allTags,
-          });
-        } else {
-          // No entries found, go back to journals
-          router.back();
-        }
+        // Recalculate book data
+        const totalDuration = bookEntries.reduce((sum, entry) => sum + entry.duration, 0);
+        const allTags = [...new Set(bookEntries.flatMap(entry => entry.tags))];
+        
+        setBookData({
+          title: bookTitle,
+          author: bookEntries[0].author,
+          entries: bookEntries,
+          totalSessions: bookEntries.length,
+          totalDuration,
+          tags: allTags,
+        });
+      } else {
+        // No entries found, go back to journals
+        router.back();
       }
     } catch (error) {
       console.error('Error loading notes:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -75,6 +70,8 @@ export default function Notes() {
   }, [router]);
 
   const handleNotePress = useCallback((note: JournalEntry) => {
+    if (!note) return;
+    
     router.push({
       pathname: '/(screens)/journal/NoteDetail',
       params: { 
@@ -168,21 +165,31 @@ export default function Notes() {
         </View>
       </View>
 
-      {bookData && (
-        <View style={[styles.bookSummary, { backgroundColor: theme.colors.background.card }]}>
-          <Text style={[styles.summaryText, { color: theme.colors.text.secondary }]}>
-            {bookData.totalSessions} sessions • {formatDuration(bookData.totalDuration)} total
+      {loading ? (
+        <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background.dark }]}>
+          <Text style={[styles.loadingText, { color: theme.colors.text.primary }]}>
+            Loading notes...
           </Text>
         </View>
-      )}
+      ) : (
+        <>
+          {bookData && (
+            <View style={[styles.bookSummary, { backgroundColor: theme.colors.background.card }]}>
+              <Text style={[styles.summaryText, { color: theme.colors.text.secondary }]}>
+                {bookData.totalSessions} sessions • {formatDuration(bookData.totalDuration)} total
+              </Text>
+            </View>
+          )}
 
-      <FlatList
-        data={notes}
-        renderItem={renderNoteItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+          <FlatList
+            data={notes}
+            renderItem={renderNoteItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -290,5 +297,14 @@ const styles = StyleSheet.create({
   chevronText: {
     fontSize: 20,
     fontWeight: '300',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 }); 
