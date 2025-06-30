@@ -178,11 +178,13 @@ export default function Journals() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.dark }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: theme.colors.text.primary }]}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.colors.text.primary }]}>Reading Journal</Text>
+      <View style={styles.titleContainer}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Text style={[styles.backButtonText, { color: theme.colors.text.primary }]}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.colors.text.primary }]}>Reading Journal</Text>
+        </View>
       </View>
 
       {bookGroups.length === 0 ? (
@@ -219,12 +221,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  titleContainer: {
     padding: SPACING.lg,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backButton: {
     marginRight: SPACING.md,

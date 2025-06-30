@@ -174,17 +174,41 @@ Shared from NightChapter`;
           { backgroundColor: theme.colors.background.dark },
         ]}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Text
-              style={[
-                styles.backButtonText,
-                { color: theme.colors.text.primary },
-              ]}
-            >
-              ← Back
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.titleContainer}>
+          <View style={styles.titleRow}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Text
+                style={[
+                  styles.backButtonText,
+                  { color: theme.colors.text.primary },
+                ]}
+              >
+                ← Back
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity onPress={handleShare} style={styles.actionButton}>
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    { color: theme.colors.text.primary },
+                  ]}
+                >
+                  Share
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleEdit} style={styles.actionButton}>
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    { color: theme.colors.text.primary },
+                  ]}
+                >
+                  Edit
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
         <View style={[styles.content, styles.loadingContainer]}>
           <Text style={[styles.loadingText, { color: theme.colors.text.primary }]}>
@@ -202,38 +226,40 @@ Shared from NightChapter`;
         { backgroundColor: theme.colors.background.dark },
       ]}
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text
-            style={[
-              styles.backButtonText,
-              { color: theme.colors.text.primary },
-            ]}
-          >
-            ← Back
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={handleShare} style={styles.actionButton}>
+      <View style={styles.titleContainer}>
+        <View style={styles.titleRow}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Text
               style={[
-                styles.actionButtonText,
+                styles.backButtonText,
                 { color: theme.colors.text.primary },
               ]}
             >
-              Share
+              ← Back
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleEdit} style={styles.actionButton}>
-            <Text
-              style={[
-                styles.actionButtonText,
-                { color: theme.colors.text.primary },
-              ]}
-            >
-              Edit
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={handleShare} style={styles.actionButton}>
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { color: theme.colors.text.primary },
+                ]}
+              >
+                Share
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleEdit} style={styles.actionButton}>
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { color: theme.colors.text.primary },
+                ]}
+              >
+                Edit
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -337,13 +363,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  titleContainer: {
     padding: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+  },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   backButton: {
     marginRight: SPACING.md,

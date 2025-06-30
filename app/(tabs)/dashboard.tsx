@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useTheme } from './context/ThemeContext';
-import { SPACING } from './styles/theme';
-import { getReadingStreak, ReadingStreak } from './utils/streakUtils';
+import { useTheme } from '../context/ThemeContext';
+import { SPACING } from '../styles/theme';
+import { getReadingStreak, ReadingStreak } from '../utils/streakUtils';
 
 export default function DashboardScreen() {
   const { theme } = useTheme();
@@ -37,12 +37,6 @@ export default function DashboardScreen() {
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.dark }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.text.primary }]}>
-          NightChapter
-        </Text>
-      </View>
-      
       <View style={styles.content}>
         <Text style={[styles.welcomeText, { color: theme.colors.text.primary }]}>
           Welcome to NightChapter!
@@ -110,15 +104,6 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    padding: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
   },
   content: {
     flex: 1,
