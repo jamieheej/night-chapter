@@ -49,7 +49,7 @@ export default function Settings() {
         ? 'Sign in for cloud sync and premium features'
         : `${user?.email} ${user?.isPremium ? '(Premium)' : ''}`,
       onPress: handleAccount,
-      icon: user?.provider === 'guest' ? '��' : '⭐',
+      icon: user?.provider === 'guest' ? '👤' : '⭐',
     },
     {
       title: 'Focus Mode',
