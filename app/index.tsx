@@ -39,48 +39,45 @@ export default function HomeScreen() {
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.dark }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.text.primary }]}>
-          NightChapter
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
-          Read to Sleep, Mindfully
-        </Text>
-      </View>
-      
-      <View style={styles.imageContainer}>
-        <View style={[styles.imagePlaceholder, { backgroundColor: theme.colors.background.card }]}>
-          <Text style={{ color: theme.colors.text.secondary }}>📚</Text>
+      <View style={styles.content}>
+        <View style={styles.logoContainer}>
+          <Text style={styles.logo}>📚</Text>
+          <Text style={[styles.appName, { color: theme.colors.text.primary }]}>
+            NightChapter
+          </Text>
+          <Text style={[styles.tagline, { color: theme.colors.text.secondary }]}>
+            Your mindful reading companion for better sleep
+          </Text>
         </View>
-      </View>
-      
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#000000' }]}
-          onPress={handleAppleLogin}
-        >
-          <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
-            Sign in with Apple
-          </Text>
-        </TouchableOpacity>
         
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#4285F4' }]}
-          onPress={handleGoogleLogin}
-        >
-          <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
-            Sign in with Google
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: theme.colors.background.card }]}
-          onPress={handleGuestMode}
-        >
-          <Text style={[styles.buttonText, { color: theme.colors.text.primary }]}>
-            Try Guest Mode
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: '#000000' }]}
+            onPress={handleAppleLogin}
+          >
+            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+              Continue with Apple
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: '#4285F4' }]}
+            onPress={handleGoogleLogin}
+          >
+            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+              Continue with Google
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: theme.colors.background.card }]}
+            onPress={handleGuestMode}
+          >
+            <Text style={[styles.buttonText, { color: theme.colors.text.primary }]}>
+              Continue as Guest
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -89,39 +86,36 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: SPACING.lg,
   },
-  header: {
-    alignItems: 'center',
-    marginTop: SPACING.xxl,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: '700',
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontWeight: '400',
-  },
-  imageContainer: {
+  content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: SPACING.lg,
+    justifyContent: 'space-between',
   },
-  imagePlaceholder: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    justifyContent: 'center',
+  logoContainer: {
     alignItems: 'center',
+    marginTop: SPACING.xxl * 2,
   },
-  footer: {
+  logo: {
+    fontSize: 64,
+    marginBottom: SPACING.lg,
+  },
+  appName: {
+    fontSize: 32,
+    fontWeight: '700',
+    marginBottom: SPACING.sm,
+  },
+  tagline: {
+    fontSize: 16,
+    textAlign: 'center',
+    maxWidth: '80%',
+  },
+  buttonContainer: {
     marginBottom: SPACING.xl,
   },
   button: {
-    borderRadius: 8,
-    paddingVertical: SPACING.md,
+    borderRadius: 12,
+    paddingVertical: SPACING.lg,
     marginBottom: SPACING.md,
     alignItems: 'center',
     justifyContent: 'center',
