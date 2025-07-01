@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, AppState, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -8,33 +9,21 @@ import { SPACING } from '../../styles/theme';
 import { endFocusSession, getFocusModeSettings, startFocusSession } from '../../utils/focusMode';
 import { getStreakMessage, updateReadingStreak } from '../../utils/streakUtils';
 
-
-interface TimerSchedule {
-  time: string;
-  days: string[];
-  repeat: boolean;
-  alarm: boolean;
-  createdAt: string;
-}
-
 interface Session {
   duration: number;
   completedAt: string;
 }
 
+const DEFAULT_TIME = 30 * 60; // 30 minutes in seconds
+
 const ReadingTimerScreen: React.FC = () => {
   const { theme } = useTheme();
   const router = useRouter();
-  const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes in seconds
-  const [originalTime, setOriginalTime] = useState(30 * 60);
+  const [timeRemaining, setTimeRemaining] = useState(DEFAULT_TIME);
+  const [originalTime, setOriginalTime] = useState(DEFAULT_TIME);
   const [isRunning, setIsRunning] = useState(false);
   const [showTimeSelector, setShowTimeSelector] = useState(false);
   const [completedSessions, setCompletedSessions] = useState<Session[]>([]);
-  // const [showTimePicker, setShowTimePicker] = useState<boolean>(false);
-  // const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  // const [repeat, setRepeat] = useState<boolean>(false);
-  // const [alarm, setAlarm] = useState<boolean>(true);
-  // const [existingSchedule, setExistingSchedule] = useState<TimerSchedule | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [showFocusOverlay, setShowFocusOverlay] = useState(false);
   const [focusModeEnabled, setFocusModeEnabled] = useState(false);
@@ -44,31 +33,37 @@ const ReadingTimerScreen: React.FC = () => {
     { label: '30 min', value: 30 * 60 },
     { label: '45 min', value: 45 * 60 },
     { label: '60 min', value: 60 * 60 },
-    { label: '90 min', value: 90 * 60 },
   ];
 
-  // Load existing schedule on component mount
+  // Load focus settings and completed sessions on mount
   useEffect(() => {
-    const loadSchedule = async (): Promise<void> => {
+    const loadInitialData = async () => {
       try {
-        const savedSchedule = await AsyncStorage.getItem('readingTimerSchedule');
-        if (savedSchedule) {
-          const schedule: TimerSchedule = JSON.parse(savedSchedule);
-          setTimeRemaining(schedule.time ? parseInt(schedule.time) : 30 * 60);
-          setOriginalTime(schedule.time ? parseInt(schedule.time) : 30 * 60);
-          // setSelectedDays(schedule.days);
-          // setRepeat(schedule.repeat);
-          // setAlarm(schedule.alarm);
-          // setExistingSchedule(schedule);
+        // Load focus mode settings
+        const settings = await getFocusModeSettings();
+        setFocusModeEnabled(settings.enabled);
+
+        // Load completed sessions
+        const savedSessions = await AsyncStorage.getItem('completedSessions');
+        if (savedSessions) {
+          setCompletedSessions(JSON.parse(savedSessions));
+        }
+
+        // Load last used timer duration
+        const savedDuration = await AsyncStorage.getItem('lastTimerDuration');
+        if (savedDuration) {
+          const duration = parseInt(savedDuration, 10);
+          setTimeRemaining(duration);
+          setOriginalTime(duration);
         }
       } catch (error) {
-        console.error('Failed to load schedule:', error);
+        console.error('Error loading initial data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadSchedule();
+    loadInitialData();
   }, []);
 
   useEffect(() => {
@@ -79,8 +74,6 @@ const ReadingTimerScreen: React.FC = () => {
         setTimeRemaining(prev => prev - 1);
       }, 1000);
     } else if (timeRemaining === 0 && isRunning) {
-      // Timer finished
-      setIsRunning(false);
       handleSessionComplete();
     }
     
@@ -88,101 +81,46 @@ const ReadingTimerScreen: React.FC = () => {
   }, [isRunning, timeRemaining]);
 
   useEffect(() => {
-    loadFocusSettings();
-  }, []);
-
-  useEffect(() => {
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
   }, [isRunning, focusModeEnabled]);
 
-  const loadFocusSettings = async () => {
-    try {
-      const settings = await getFocusModeSettings();
-      setFocusModeEnabled(settings.enabled);
-    } catch (error) {
-      console.error('Error loading focus settings:', error);
-    }
-  };
-
   const handleAppStateChange = (nextAppState: string) => {
     if (isRunning && focusModeEnabled && nextAppState === 'background') {
-      // Show focus overlay when app goes to background during timer
       setShowFocusOverlay(true);
     }
   };
 
   const handleSessionComplete = async () => {
-    const newSession: Session = {
+    setIsRunning(false);
+    
+    // Save completed session
+    const newSession = {
       duration: originalTime,
       completedAt: new Date().toISOString(),
     };
     
-    setCompletedSessions(prev => [...prev, newSession]);
+    const updatedSessions = [...completedSessions, newSession];
+    setCompletedSessions(updatedSessions);
+    await AsyncStorage.setItem('completedSessions', JSON.stringify(updatedSessions));
     
-    try {
-      // Update reading streak
-      const updatedStreak = await updateReadingStreak();
-      const streakMessage = getStreakMessage(updatedStreak);
-      
-      Alert.alert(
-        'Session Complete! 🎉',
-        `Congratulations! You've completed your reading session.\n\n${streakMessage}`,
-        [
-          {
-            text: 'Add Journal Entry',
-            onPress: () => {
-              const totalDuration = getTotalCompletedTime();
-              router.push({
-                pathname: '/(screens)/reading/Journal',
-                params: {
-                  totalDuration: totalDuration.toString(),
-                  sessionsCount: completedSessions.length.toString(),
-                },
-              });
-            },
-          },
-          {
-            text: 'Finish',
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Error updating streak:', error);
-      // Fallback to original alert
-      Alert.alert(
-        'Session Complete!',
-        'Congratulations! You\'ve completed your reading session.',
-        [
-          {
-            text: 'Add Journal Entry',
-            onPress: () => {
-              const totalDuration = getTotalCompletedTime();
-              router.push({
-                pathname: '/(screens)/reading/Journal',
-                params: {
-                  totalDuration: totalDuration.toString(),
-                  sessionsCount: completedSessions.length.toString(),
-                },
-              });
-            },
-          },
-          {
-            text: 'Finish',
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    }
+    // Update streak
+    const updatedStreak = await updateReadingStreak();
     
-    // End focus session
+    // Show completion message
+    const streakMessage = getStreakMessage(updatedStreak);
+    Alert.alert(
+      'Reading Session Complete! 🎉',
+      streakMessage,
+      [{ text: 'OK' }]
+    );
+    
+    // End focus session if active
     if (focusModeEnabled) {
       await endFocusSession();
       setShowFocusOverlay(false);
     }
   };
-  
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -200,6 +138,22 @@ const ReadingTimerScreen: React.FC = () => {
       // Starting timer
       setIsRunning(true);
       if (focusModeEnabled) {
+        const settings = await getFocusModeSettings();
+        if (settings.doNotDisturb) {
+          try {
+            await Notifications.setNotificationHandler({
+              handleNotification: async () => ({
+                shouldShowAlert: false,
+                shouldPlaySound: false,
+                shouldSetBadge: false,
+                shouldShowBanner: false,
+                shouldShowList: false,
+              }),
+            });
+          } catch (error) {
+            console.error('Failed to enable Do Not Disturb:', error);
+          }
+        }
         await startFocusSession(timeRemaining);
         setShowFocusOverlay(true);
       }
@@ -207,12 +161,25 @@ const ReadingTimerScreen: React.FC = () => {
       // Pausing timer
       setIsRunning(false);
       if (focusModeEnabled) {
+        try {
+          await Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+              shouldShowAlert: true,
+              shouldPlaySound: true,
+              shouldSetBadge: true,
+              shouldShowBanner: true,
+              shouldShowList: true,
+            }),
+          });
+        } catch (error) {
+          console.error('Failed to disable Do Not Disturb:', error);
+        }
         await endFocusSession();
         setShowFocusOverlay(false);
       }
     }
   };
-  
+
   const handleReset = async () => {
     setIsRunning(false);
     setTimeRemaining(originalTime);
@@ -221,64 +188,33 @@ const ReadingTimerScreen: React.FC = () => {
       setShowFocusOverlay(false);
     }
   };
-  
-  const handleTimeSelect = (newTime: number) => {
+
+  const handleTimeSelect = async (newTime: number) => {
     if (!isRunning) {
       setTimeRemaining(newTime);
       setOriginalTime(newTime);
+      // Save selected duration for next time
+      await AsyncStorage.setItem('lastTimerDuration', newTime.toString());
     }
     setShowTimeSelector(false);
-  };
-  
-  const handleBack = () => {
-    if (isRunning || timeRemaining !== originalTime) {
-      Alert.alert(
-        'Session in Progress',
-        'Your current session might be lost. What would you like to do?',
-        [
-          {
-            text: 'Continue Reading',
-            style: 'cancel',
-          },
-          {
-            text: 'End Session',
-            style: 'destructive',
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    } else {
-      router.back();
-    }
-  };
-  
-  const getTotalCompletedTime = () => {
-    return completedSessions.reduce((sum, session) => sum + session.duration, 0);
-  };
-
-  const handleFocusOverlayClose = () => {
-    setShowFocusOverlay(false);
-  };
-
-  const handleEndFocusSession = async () => {
-    await endFocusSession();
-    setShowFocusOverlay(false);
-    setIsRunning(false);
-    setTimeRemaining(originalTime);
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading schedule...</Text>
-      </View>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.dark }]}>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: theme.colors.text.primary }]}>
+            Loading timer...
+          </Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.dark }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={[styles.backButtonText, { color: theme.colors.text.primary }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.colors.text.primary }]}>Reading Timer</Text>
@@ -306,7 +242,7 @@ const ReadingTimerScreen: React.FC = () => {
               Previous sessions: {completedSessions.length}
             </Text>
             <Text style={[styles.sessionText, { color: theme.colors.text.secondary }]}>
-              Total time: {formatDuration(getTotalCompletedTime())}
+              Total time: {formatDuration(completedSessions.reduce((sum, session) => sum + session.duration, 0))}
             </Text>
           </View>
         )}
@@ -366,31 +302,36 @@ const ReadingTimerScreen: React.FC = () => {
                 </Text>
               </TouchableOpacity>
             ))}
-            
-            <TouchableOpacity
-              style={[styles.cancelButton, { backgroundColor: theme.colors.background.dark }]}
-              onPress={() => setShowTimeSelector(false)}
-            >
-              <Text style={[styles.cancelButtonText, { color: theme.colors.text.primary }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
-      
+
       <FocusOverlay
         visible={showFocusOverlay}
-        onRequestClose={handleFocusOverlayClose}
-        onEndSession={handleEndFocusSession}
+        onRequestClose={() => setShowFocusOverlay(false)}
+        onEndSession={() => {
+          setShowFocusOverlay(false);
+          setIsRunning(false);
+          setTimeRemaining(originalTime);
+        }}
       />
     </SafeAreaView>
   );
 };
 
+export default ReadingTimerScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
   },
   header: {
     flexDirection: 'row',
@@ -411,25 +352,25 @@ const styles = StyleSheet.create({
   },
   timerContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.lg,
+    justifyContent: 'center',
+    padding: SPACING.xl,
   },
   timeSelector: {
     alignItems: 'center',
-    marginBottom: SPACING.xl,
   },
   timer: {
-    fontSize: 72,
-    fontWeight: '700',
+    fontSize: 64,
+    fontWeight: '300',
+    fontFamily: 'monospace',
   },
   changeTimeHint: {
+    marginTop: SPACING.sm,
     fontSize: 14,
-    marginTop: SPACING.xs,
   },
   sessionInfo: {
+    marginTop: SPACING.xl,
     alignItems: 'center',
-    marginBottom: SPACING.lg,
   },
   sessionText: {
     fontSize: 14,
@@ -437,65 +378,52 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
-    marginBottom: SPACING.xl,
+    gap: SPACING.md,
+    marginTop: SPACING.xl,
   },
   button: {
     paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
     borderRadius: 8,
-    marginHorizontal: SPACING.sm,
+    minWidth: 100,
+    alignItems: 'center',
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
   },
   instructions: {
-    textAlign: 'center',
     marginTop: SPACING.xl,
-    paddingHorizontal: SPACING.xl,
+    textAlign: 'center',
     fontSize: 14,
+    lineHeight: 20,
+    maxWidth: 300,
   },
   modalOverlay: {
     flex: 1,
+    justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   modalContent: {
-    width: '80%',
-    borderRadius: 12,
-    padding: SPACING.lg,
+    padding: SPACING.xl,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    textAlign: 'center',
     marginBottom: SPACING.lg,
+    textAlign: 'center',
   },
   timeOption: {
-    padding: SPACING.md,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
     borderRadius: 8,
     marginBottom: SPACING.sm,
-    alignItems: 'center',
   },
   timeOptionText: {
     fontSize: 16,
     fontWeight: '500',
-  },
-  cancelButton: {
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginTop: SPACING.md,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    textAlign: 'center',
   },
 });
-
-export default ReadingTimerScreen;
