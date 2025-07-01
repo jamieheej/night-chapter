@@ -9,32 +9,50 @@ interface TimerSchedule {
   repeat: boolean;
   alarm: boolean;
   createdAt: string;
+  isTestMode?: boolean; // Add test mode flag
 }
 
-// Configure notifications
+// Configure notifications for both foreground and background behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
+    shouldShowAlert: true, // Show alert even when app is in foreground
+    shouldPlaySound: true, // Play sound if enabled
+    shouldSetBadge: true, // Show badge count
+    shouldShowBanner: true, // Show banner notification
+    shouldShowList: true, // Show in notification list
   }),
 });
 
-// Request permissions
+// Request permissions with all necessary options
 export const requestNotificationPermissions = async (): Promise<boolean> => {
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("reading-timer", {
-      name: "Reading Timer",
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#FF231F7C",
-    });
-  }
+  try {
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("reading-timer", {
+        name: "Reading Timer",
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#FF231F7C",
+        lockscreenVisibility:
+          Notifications.AndroidNotificationVisibility.PUBLIC,
+        showBadge: true,
+      });
+    }
 
-  const { status } = await Notifications.requestPermissionsAsync();
-  return status === "granted";
+    const { status } = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+        allowCriticalAlerts: true,
+        provideAppNotificationSettings: true,
+      },
+    });
+
+    return status === "granted";
+  } catch (error) {
+    console.error("Failed to request notification permissions:", error);
+    return false;
+  }
 };
 
 // Schedule a notification
@@ -50,40 +68,59 @@ export const scheduleReadingTimerNotification = async (
     return [];
   }
 
-  const time = new Date(schedule.time);
+  try {
+    if (schedule.isTestMode) {
+      // For testing: Schedule only one notification 30 seconds from now
+      const notificationDate = new Date(Date.now() + 30 * 1000);
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Test Notification",
+          body: "This is a test notification for your reading reminder.",
+          sound: schedule.alarm ? true : undefined,
+        },
+        trigger: {
+          date: notificationDate,
+          repeats: false,
+        } as unknown as DateTriggerInput,
+      });
+      return [id];
+    }
 
-  // For each selected day, schedule a notification
-  const notificationPromises = schedule.days.map(async (day) => {
-    const dayIndex = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ].indexOf(day);
-    if (dayIndex === -1) return null;
+    // For regular scheduling, handle each selected day
+    const time = new Date(schedule.time);
+    const notificationPromises = schedule.days.map(async (day) => {
+      const dayIndex = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ].indexOf(day);
+      if (dayIndex === -1) return null;
 
-    // Calculate next occurrence of this day
-    const notificationDate = getNextDayOfWeek(dayIndex, time);
+      const notificationDate = getNextDayOfWeek(dayIndex, time);
 
-    // Schedule the notification
-    return await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Time to Read!",
-        body: "Your scheduled reading session is starting now.",
-        sound: schedule.alarm ? true : undefined,
-      },
-      trigger: {
-        date: notificationDate,
-        repeats: schedule.repeat,
-      } as unknown as DateTriggerInput,
+      return await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Time to Read!",
+          body: "Your scheduled reading session is starting now.",
+          sound: schedule.alarm ? true : undefined,
+        },
+        trigger: {
+          date: notificationDate,
+          repeats: schedule.repeat,
+        } as unknown as DateTriggerInput,
+      });
     });
-  });
 
-  const notificationIds = await Promise.all(notificationPromises);
-  return notificationIds.filter((id): id is string => id !== null);
+    const notificationIds = await Promise.all(notificationPromises);
+    return notificationIds.filter((id): id is string => id !== null);
+  } catch (error) {
+    console.error("Failed to schedule notifications:", error);
+    throw error;
+  }
 };
 
 // Helper function to get the next occurrence of a specific day of the week
