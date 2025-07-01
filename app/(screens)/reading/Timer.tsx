@@ -1,7 +1,4 @@
-import { RootStackParamList } from '@/app/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, AppState, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -11,7 +8,6 @@ import { SPACING } from '../../styles/theme';
 import { endFocusSession, getFocusModeSettings, startFocusSession } from '../../utils/focusMode';
 import { getStreakMessage, updateReadingStreak } from '../../utils/streakUtils';
 
-type ReadingTimerScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ReadingTimer'>;
 
 interface TimerSchedule {
   time: string;
@@ -27,7 +23,6 @@ interface Session {
 }
 
 const ReadingTimerScreen: React.FC = () => {
-  const navigation = useNavigation<ReadingTimerScreenNavigationProp>();
   const { theme } = useTheme();
   const router = useRouter();
   const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes in seconds
@@ -35,11 +30,11 @@ const ReadingTimerScreen: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [showTimeSelector, setShowTimeSelector] = useState(false);
   const [completedSessions, setCompletedSessions] = useState<Session[]>([]);
-  const [showTimePicker, setShowTimePicker] = useState<boolean>(false);
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [repeat, setRepeat] = useState<boolean>(false);
-  const [alarm, setAlarm] = useState<boolean>(true);
-  const [existingSchedule, setExistingSchedule] = useState<TimerSchedule | null>(null);
+  // const [showTimePicker, setShowTimePicker] = useState<boolean>(false);
+  // const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  // const [repeat, setRepeat] = useState<boolean>(false);
+  // const [alarm, setAlarm] = useState<boolean>(true);
+  // const [existingSchedule, setExistingSchedule] = useState<TimerSchedule | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [showFocusOverlay, setShowFocusOverlay] = useState(false);
   const [focusModeEnabled, setFocusModeEnabled] = useState(false);
@@ -61,10 +56,10 @@ const ReadingTimerScreen: React.FC = () => {
           const schedule: TimerSchedule = JSON.parse(savedSchedule);
           setTimeRemaining(schedule.time ? parseInt(schedule.time) : 30 * 60);
           setOriginalTime(schedule.time ? parseInt(schedule.time) : 30 * 60);
-          setSelectedDays(schedule.days);
-          setRepeat(schedule.repeat);
-          setAlarm(schedule.alarm);
-          setExistingSchedule(schedule);
+          // setSelectedDays(schedule.days);
+          // setRepeat(schedule.repeat);
+          // setAlarm(schedule.alarm);
+          // setExistingSchedule(schedule);
         }
       } catch (error) {
         console.error('Failed to load schedule:', error);
@@ -188,21 +183,6 @@ const ReadingTimerScreen: React.FC = () => {
     }
   };
   
-  const handleReadMore = () => {
-    setTimeRemaining(originalTime);
-    setIsRunning(false);
-  };
-  
-  const handleEndSession = () => {
-    const totalDuration = completedSessions.reduce((sum, session) => sum + session.duration, 0) + originalTime;
-    router.push({
-      pathname: '/(screens)/reading/Journal',
-      params: { 
-        totalDuration: totalDuration.toString(),
-        sessionsCount: (completedSessions.length + 1).toString()
-      }
-    });
-  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
