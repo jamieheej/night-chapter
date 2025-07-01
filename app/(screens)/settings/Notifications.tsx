@@ -16,7 +16,6 @@ interface TimerSchedule {
   repeat: boolean;
   alarm: boolean;
   createdAt: string;
-  isTestMode: boolean;
 }
 
 export default function Notifications() {
@@ -30,7 +29,6 @@ export default function Notifications() {
   const [existingSchedule, setExistingSchedule] = useState<TimerSchedule | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
-  const [isTestMode, setIsTestMode] = useState<boolean>(false);
 
   // Load existing schedule on component mount
   useEffect(() => {
@@ -185,7 +183,6 @@ export default function Notifications() {
         repeat,
         alarm,
         createdAt: new Date().toISOString(),
-        isTestMode,
       };
       
       await AsyncStorage.setItem('readingTimerSchedule', JSON.stringify(schedule));
@@ -193,27 +190,15 @@ export default function Notifications() {
       // Schedule all notifications first
       await scheduleReadingTimerNotification(schedule);
       
-      // Show a single success alert
+      // Show success alert
       const daysText = selectedDays.length === 1 
         ? selectedDays[0]
         : `${selectedDays.slice(0, -1).join(', ')} and ${selectedDays[selectedDays.length - 1]}`;
       
       Alert.alert(
-        isTestMode ? 'Test Notification Scheduled!' : 'Schedule Saved!',
-        isTestMode
-          ? 'You will receive a test notification in 30 seconds.'
-          : `Your reading timer notifications have been scheduled for ${daysText} at ${formatTime(time)}.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              if (isTestMode) {
-                setIsTestMode(false);
-              }
-              router.back();
-            },
-          },
-        ]
+        'Schedule Saved!',
+        `Your reading timer notifications have been scheduled for ${daysText} at ${formatTime(time)}.`,
+        [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error) {
       console.error('Failed to save schedule:', error);
@@ -389,34 +374,6 @@ export default function Notifications() {
                   onValueChange={setAlarm}
                   trackColor={{ false: theme.colors.divider, true: theme.colors.primary }}
                   thumbColor={alarm ? '#FFFFFF' : theme.colors.text.tertiary}
-                />
-              </View>
-            </View>
-
-            <View style={[styles.section, { backgroundColor: theme.colors.background.card }]}>
-              <View style={styles.settingRow}>
-                <View>
-                  <Text style={[styles.settingLabel, { color: theme.colors.text.primary }]}>
-                    Test Mode
-                  </Text>
-                  <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
-                    Send a test notification in 30 seconds
-                  </Text>
-                </View>
-                <Switch
-                  value={isTestMode}
-                  onValueChange={(value) => {
-                    setIsTestMode(value);
-                    if (value) {
-                      // When enabling test mode, select current day if no days selected
-                      if (selectedDays.length === 0) {
-                        const today = DAYS_OF_WEEK[new Date().getDay()];
-                        setSelectedDays([today]);
-                      }
-                    }
-                  }}
-                  trackColor={{ false: theme.colors.divider, true: theme.colors.primary }}
-                  thumbColor={isTestMode ? '#FFFFFF' : theme.colors.text.tertiary}
                 />
               </View>
             </View>
