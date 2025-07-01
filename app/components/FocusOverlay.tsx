@@ -16,7 +16,7 @@ import { endFocusSession, getActiveFocusSession } from '../utils/focusMode';
 interface FocusOverlayProps {
   visible: boolean;
   onRequestClose: () => void;
-  onEndSession: () => void;
+  onEndSession: (remainingTime: number) => void;
 }
 
 export default function FocusOverlay({ visible, onRequestClose, onEndSession }: FocusOverlayProps) {
@@ -61,8 +61,9 @@ export default function FocusOverlay({ visible, onRequestClose, onEndSession }: 
   const updateTimeRemaining = async () => {
     const session = await getActiveFocusSession();
     if (session) {
-      setTimeRemaining(Math.max(0, session.timeRemaining));
-      if (session.timeRemaining <= 0) {
+      const remaining = Math.max(0, session.timeRemaining);
+      setTimeRemaining(remaining);
+      if (remaining <= 0) {
         handleEndSession();
       }
     }
@@ -70,7 +71,7 @@ export default function FocusOverlay({ visible, onRequestClose, onEndSession }: 
 
   const handleEndSession = async () => {
     await endFocusSession();
-    onEndSession();
+    onEndSession(timeRemaining);
   };
 
   const formatTime = (ms: number): string => {
