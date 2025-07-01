@@ -94,9 +94,9 @@ const ReadingTimerScreen: React.FC = () => {
   const handleSessionComplete = async () => {
     setIsRunning(false);
     
-    // Save completed session
+    // Save completed session with actual time spent
     const newSession = {
-      duration: originalTime,
+      duration: originalTime - timeRemaining,
       completedAt: new Date().toISOString(),
     };
     
@@ -158,8 +158,19 @@ const ReadingTimerScreen: React.FC = () => {
         setShowFocusOverlay(true);
       }
     } else {
-      // Pausing timer
+      // Pausing timer - save the partial session
       setIsRunning(false);
+      const timeSpent = originalTime - timeRemaining;
+      if (timeSpent > 60) { // Only save if at least 1 minute was spent
+        const partialSession = {
+          duration: timeSpent,
+          completedAt: new Date().toISOString(),
+        };
+        const updatedSessions = [...completedSessions, partialSession];
+        setCompletedSessions(updatedSessions);
+        await AsyncStorage.setItem('completedSessions', JSON.stringify(updatedSessions));
+      }
+      
       if (focusModeEnabled) {
         try {
           await Notifications.setNotificationHandler({
@@ -181,6 +192,19 @@ const ReadingTimerScreen: React.FC = () => {
   };
 
   const handleReset = async () => {
+    if (isRunning) {
+      // Save partial session if resetting while running
+      const timeSpent = originalTime - timeRemaining;
+      if (timeSpent > 60) { // Only save if at least 1 minute was spent
+        const partialSession = {
+          duration: timeSpent,
+          completedAt: new Date().toISOString(),
+        };
+        const updatedSessions = [...completedSessions, partialSession];
+        setCompletedSessions(updatedSessions);
+        await AsyncStorage.setItem('completedSessions', JSON.stringify(updatedSessions));
+      }
+    }
     setIsRunning(false);
     setTimeRemaining(originalTime);
     if (focusModeEnabled) {
@@ -309,7 +333,20 @@ const ReadingTimerScreen: React.FC = () => {
       <FocusOverlay
         visible={showFocusOverlay}
         onRequestClose={() => setShowFocusOverlay(false)}
-        onEndSession={() => {
+        onEndSession={(remainingTime) => {
+          // Save partial session if at least 1 minute was spent
+          const timeSpent = originalTime - Math.floor(remainingTime / 1000);
+          if (timeSpent > 60) {
+            const partialSession = {
+              duration: timeSpent,
+              completedAt: new Date().toISOString(),
+            };
+            const updatedSessions = [...completedSessions, partialSession];
+            setCompletedSessions(updatedSessions);
+            AsyncStorage.setItem('completedSessions', JSON.stringify(updatedSessions))
+              .catch(error => console.error('Error saving partial session:', error));
+          }
+          
           setShowFocusOverlay(false);
           setIsRunning(false);
           setTimeRemaining(originalTime);
