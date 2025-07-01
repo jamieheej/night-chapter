@@ -1,8 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import * as JournalStorage from '../../services/journalStorage';
 import { SPACING } from '../../styles/theme';
 import { getStreakMessage, updateReadingStreak } from '../../utils/streakUtils';
 
@@ -10,6 +11,7 @@ export default function Journal() {
   const { theme } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
   const [notes, setNotes] = useState('');
@@ -33,6 +35,11 @@ export default function Journal() {
       Alert.alert('Missing Title', 'Please enter a book title.');
       return;
     }
+
+    if (!user) {
+      Alert.alert('Error', 'You must be signed in to create a journal entry.');
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -49,12 +56,8 @@ export default function Journal() {
         mood: undefined, // Can be added later via edit
       };
       
-      // Get existing entries and add the new one
-      const existingEntries = await AsyncStorage.getItem('journalEntries');
-      const entries = existingEntries ? JSON.parse(existingEntries) : [];
-      entries.push(journalEntry);
-      
-      await AsyncStorage.setItem('journalEntries', JSON.stringify(entries));
+      // Save entry using JournalStorage service
+      await JournalStorage.saveJournalEntry(journalEntry, user.id, user.provider === 'guest');
       
       // Update reading streak using the utility function
       const updatedStreak = await updateReadingStreak();
