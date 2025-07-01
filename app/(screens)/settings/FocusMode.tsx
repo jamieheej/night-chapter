@@ -3,16 +3,14 @@ import React, { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { SPACING } from '../../styles/theme';
-import { FocusModeSettings, getFocusModeSettings, saveFocusModeSettings } from '../../utils/focusMode';
+import { FocusModeSettings, getFocusModeSettings, openFocusSettings, restoreNotifications, saveFocusModeSettings, suppressNotifications } from '../../utils/focusMode';
 
 export default function FocusMode() {
   const { theme } = useTheme();
   const router = useRouter();
   const [settings, setSettings] = useState<FocusModeSettings>({
     enabled: true,
-    blockLevel: 'moderate',
-    allowedApps: [],
-    breakReminders: true,
+    doNotDisturb: true
   });
 
   useEffect(() => {
@@ -32,34 +30,28 @@ export default function FocusMode() {
     const updatedSettings = { ...settings, ...newSettings };
     setSettings(updatedSettings);
     await saveFocusModeSettings(updatedSettings);
-  };
 
-  const handleBack = () => {
-    router.back();
-  };
+    // Handle Do Not Disturb setting
+    if ('doNotDisturb' in newSettings) {
+      if (newSettings.doNotDisturb) {
+        openFocusSettings();
+      }
+    }
 
-  const blockLevels = [
-    {
-      id: 'gentle',
-      title: 'Gentle',
-      description: 'Friendly reminders to stay focused',
-    },
-    {
-      id: 'moderate',
-      title: 'Moderate',
-      description: 'Warnings when leaving the app',
-    },
-    {
-      id: 'strict',
-      title: 'Strict',
-      description: 'Strong deterrents and session ending',
-    },
-  ];
+    // Handle notifications based on focus mode state
+    if ('enabled' in newSettings) {
+      if (newSettings.enabled) {
+        await suppressNotifications();
+      } else {
+        await restoreNotifications();
+      }
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.dark }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={[styles.backButtonText, { color: theme.colors.text.primary }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.colors.text.primary }]}>Focus Mode</Text>
@@ -88,63 +80,18 @@ export default function FocusMode() {
         {settings.enabled && (
           <>
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-                Block Level
-              </Text>
-              <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
-                Choose how strictly to enforce focus
-              </Text>
-              
-              {blockLevels.map((level) => (
-                <TouchableOpacity
-                  key={level.id}
-                  style={[
-                    styles.optionRow,
-                    { backgroundColor: theme.colors.background.card },
-                    settings.blockLevel === level.id && { 
-                      borderColor: theme.colors.primary, 
-                      borderWidth: 2,
-                      backgroundColor: `${theme.colors.primary}15`
-                    }
-                  ]}
-                  onPress={() => updateSettings({ blockLevel: level.id as any })}
-                >
-                  <View style={styles.optionContent}>
-                    <Text style={[
-                      styles.optionTitle, 
-                      { color: theme.colors.text.primary }
-                    ]}>
-                      {level.title}
-                    </Text>
-                    <Text style={[
-                      styles.optionDescription, 
-                      { color: theme.colors.text.secondary }
-                    ]}>
-                      {level.description}
-                    </Text>
-                  </View>
-                  {settings.blockLevel === level.id && (
-                    <View style={[styles.selectedIndicator, { backgroundColor: theme.colors.primary }]}>
-                      <Text style={styles.checkmark}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.section}>
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
                   <Text style={[styles.settingTitle, { color: theme.colors.text.primary }]}>
-                    Break Reminders
+                    Do Not Disturb
                   </Text>
                   <Text style={[styles.settingDescription, { color: theme.colors.text.secondary }]}>
-                    Show reminders when taking breaks
+                    Enable system Focus mode during reading sessions
                   </Text>
                 </View>
                 <Switch
-                  value={settings.breakReminders}
-                  onValueChange={(breakReminders) => updateSettings({ breakReminders })}
+                  value={settings.doNotDisturb}
+                  onValueChange={(doNotDisturb) => updateSettings({ doNotDisturb })}
                   trackColor={{ false: theme.colors.divider, true: theme.colors.primary }}
                   thumbColor="#FFFFFF"
                 />
@@ -158,7 +105,7 @@ export default function FocusMode() {
             How Focus Mode Works
           </Text>
           <Text style={[styles.infoText, { color: theme.colors.text.secondary }]}>
-            When you start a reading timer, Focus Mode helps you stay concentrated by showing reminders when you try to leave the app. This helps build better reading habits and reduces digital distractions.
+            When you start a reading timer, Focus Mode helps you stay concentrated by suppressing notifications and optionally enabling system Focus mode. The app will show a full-screen overlay when you try to leave, helping you maintain your reading flow.
           </Text>
         </View>
       </ScrollView>
@@ -194,15 +141,6 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: SPACING.xl,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: SPACING.xs,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    marginBottom: SPACING.lg,
-  },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -220,43 +158,6 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 14,
-  },
-  optionRow: {
-    borderRadius: 12,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
-    position: 'relative',
-    minHeight: 80,
-    justifyContent: 'center',
-  },
-  optionContent: {
-    flex: 1,
-    paddingRight: SPACING.xl,
-    justifyContent: 'center',
-  },
-  optionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: SPACING.xs,
-  },
-  optionDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: 28,
-    right: SPACING.md,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
   infoSection: {
     backgroundColor: 'rgba(139, 92, 246, 0.1)',

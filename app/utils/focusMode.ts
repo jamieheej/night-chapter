@@ -1,11 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Alert } from "react-native";
+import * as Notifications from "expo-notifications";
+import { Alert, Linking, Platform } from "react-native";
 
 export interface FocusModeSettings {
   enabled: boolean;
-  blockLevel: "gentle" | "moderate" | "strict";
-  allowedApps: string[];
-  breakReminders: boolean;
+  doNotDisturb: boolean;
 }
 
 const FOCUS_MODE_KEY = "focusModeSettings";
@@ -19,17 +18,13 @@ export const getFocusModeSettings = async (): Promise<FocusModeSettings> => {
     }
     return {
       enabled: true,
-      blockLevel: "moderate",
-      allowedApps: [],
-      breakReminders: true,
+      doNotDisturb: true,
     };
   } catch (error) {
     console.error("Error getting focus mode settings:", error);
     return {
       enabled: true,
-      blockLevel: "moderate",
-      allowedApps: [],
-      breakReminders: true,
+      doNotDisturb: true,
     };
   }
 };
@@ -91,43 +86,81 @@ export const getActiveFocusSession = async () => {
   }
 };
 
-export const showFocusBreakWarning = (blockLevel: string) => {
-  const messages = {
-    gentle: {
-      title: "Stay Focused! 📚",
-      message:
-        "You're in the middle of a reading session. Consider staying focused to get the most out of your reading time.",
-      buttons: ["Continue Reading", "Take a Break"],
-    },
-    moderate: {
-      title: "Focus Mode Active ⏰",
-      message:
-        "You're currently in a reading session. Breaking focus now might disrupt your flow. Are you sure you want to leave?",
-      buttons: ["Stay Focused", "Leave Anyway"],
-    },
-    strict: {
-      title: "Reading Session in Progress 🔒",
-      message:
-        "You're in strict focus mode. Leaving now will end your reading session. This action cannot be undone.",
-      buttons: ["Continue Reading", "End Session"],
-    },
-  };
-
-  const config =
-    messages[blockLevel as keyof typeof messages] || messages.moderate;
-
+export const showFocusBreakWarning = () => {
   return new Promise((resolve) => {
-    Alert.alert(config.title, config.message, [
-      {
-        text: config.buttons[0],
-        style: "cancel",
-        onPress: () => resolve(false),
-      },
-      {
-        text: config.buttons[1],
-        style: blockLevel === "strict" ? "destructive" : "default",
-        onPress: () => resolve(true),
-      },
-    ]);
+    Alert.alert(
+      "Focus Mode Active 📚",
+      "You're in the middle of a reading session. Breaking focus now might disrupt your flow. Are you sure you want to leave?",
+      [
+        {
+          text: "Stay Focused",
+          style: "cancel",
+          onPress: () => resolve(false),
+        },
+        {
+          text: "Leave Anyway",
+          style: "destructive",
+          onPress: () => resolve(true),
+        },
+      ]
+    );
   });
+};
+
+export const suppressNotifications = async () => {
+  if (Platform.OS !== "ios") return;
+
+  try {
+    await Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      }),
+    });
+  } catch (error) {
+    console.error("Failed to suppress notifications:", error);
+  }
+};
+
+export const restoreNotifications = async () => {
+  if (Platform.OS !== "ios") return;
+
+  try {
+    await Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (error) {
+    console.error("Failed to restore notifications:", error);
+  }
+};
+
+export const openFocusSettings = () => {
+  if (Platform.OS !== "ios") return;
+
+  Alert.alert(
+    "Enable Focus Mode",
+    "To minimize distractions during reading, we recommend enabling Focus mode. Would you like to open Focus settings?",
+    [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Open Settings",
+        onPress: () => {
+          // This URL scheme opens Focus settings on iOS
+          Linking.openURL("App-prefs:root=FOCUS");
+        },
+      },
+    ]
+  );
 };
