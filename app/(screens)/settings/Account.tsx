@@ -27,14 +27,6 @@ export default function Account() {
           onPress: async () => {
             try {
               await deleteAccount();
-              Alert.alert(
-                'Account Deleted',
-                'Your account and all associated data have been permanently deleted.',
-                [{ text: 'OK', onPress: () => {
-                  console.log("OnPress OK");
-                  // router.replace('/');
-                } }]
-              );
             } catch (error) {
               if (error instanceof Error && error.message.includes('reauthenticate')) {
                 Alert.alert(
@@ -44,11 +36,8 @@ export default function Account() {
                     { text: 'Cancel', style: 'cancel' },
                     {
                       text: 'Sign Out',
-                      onPress: async () => {
-                        await signOut();
-                        console.log("OnPress SignOut");
-//                        router.replace('/(auth)/SignIn');
-                      },
+                      onPress: async () => await signOut()
+                      
                     },
                   ]
                 );
@@ -76,10 +65,7 @@ export default function Account() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            router.replace('/(screens)/auth/SignIn');
-          },
+          onPress: async () => await signOut()
         },
       ]
     );

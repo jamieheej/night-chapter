@@ -4,6 +4,7 @@ import {
   statusCodes
 } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { useRouter } from 'expo-router';
 import {
   signOut as firebaseSignOut,
   User as FirebaseUser,
@@ -52,6 +53,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   // Set up periodic sync
   useEffect(() => {
@@ -271,6 +273,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       await AsyncStorage.removeItem('user');
       setUser(null);
+      router.dismissAll();
+      router.push("/");
     } catch (error) {
       console.error('Sign out error:', error);
     }
