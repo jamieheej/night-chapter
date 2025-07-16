@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePickerModal from '@react-native-community/datetimepicker';
+import * as ExpoNotifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { SPACING } from '../../styles/theme';
 import { cancelAllScheduledNotifications, requestNotificationPermissions, scheduleReadingTimerNotification } from '../../utils/notifications';
@@ -20,6 +22,7 @@ export default function Notifications() {
   const { theme } = useTheme();
   const router = useRouter();
   const [time, setTime] = useState<Date>(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [repeat, setRepeat] = useState<boolean>(false);
   const [alarm, setAlarm] = useState<boolean>(true);
@@ -42,8 +45,15 @@ export default function Notifications() {
         }
         
         // Check notification permissions
-        const hasPermission = await requestNotificationPermissions();
-        setNotificationsEnabled(hasPermission);
+        const { status } = await ExpoNotifications.getPermissionsAsync();
+        const isEnabled = status === 'granted';
+        setNotificationsEnabled(isEnabled);
+
+        // If notifications are enabled and no days selected, select today
+        if (isEnabled && (!savedSchedule || JSON.parse(savedSchedule).days.length === 0)) {
+          const today = DAYS_OF_WEEK[new Date().getDay()];
+          setSelectedDays([today]);
+        }
       } catch (error) {
         console.error('Failed to load schedule:', error);
       } finally {
@@ -52,6 +62,29 @@ export default function Notifications() {
     };
 
     loadSchedule();
+  }, []);
+
+  // Check notification permissions on mount and when permissions change
+  useEffect(() => {
+    const checkPermissions = async () => {
+      try {
+        const { status } = await ExpoNotifications.getPermissionsAsync();
+        setNotificationsEnabled(status === 'granted');
+      } catch (error) {
+        console.error('Failed to check notification permissions:', error);
+      }
+    };
+
+    checkPermissions();
+
+    // Add listener for permission changes (e.g. when user changes permissions in settings)
+    const subscription = ExpoNotifications.addNotificationResponseReceivedListener(() => {
+      checkPermissions();
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const handleBack = () => {
@@ -63,6 +96,59 @@ export default function Notifications() {
       setSelectedDays(selectedDays.filter(d => d !== day));
     } else {
       setSelectedDays([...selectedDays, day]);
+    }
+  };
+
+  const handleNotificationToggle = async (value: boolean) => {
+    try {
+      if (value) {
+        // Request permissions
+        const { status } = await ExpoNotifications.requestPermissionsAsync();
+        
+        if (status === 'granted') {
+          setNotificationsEnabled(true);
+          // Select today if no days are selected
+          if (selectedDays.length === 0) {
+            const today = DAYS_OF_WEEK[new Date().getDay()];
+            setSelectedDays([today]);
+          }
+        } else {
+          // If denied, prompt to open settings
+          Alert.alert(
+            'Permission Required',
+            'Please enable notifications in your device settings to use this feature.',
+            [
+              {
+                text: 'Open Settings',
+                onPress: () => {
+                  Linking.openSettings();
+                },
+              },
+              {
+                text: 'Cancel',
+                style: 'cancel',
+              },
+            ]
+          );
+        }
+      } else {
+        // Disable notifications
+        setNotificationsEnabled(false);
+        await cancelAllScheduledNotifications();
+        await AsyncStorage.removeItem('readingTimerSchedule');
+        setSelectedDays([]);
+        setExistingSchedule(null);
+      }
+    } catch (error) {
+      console.error('Failed to toggle notifications:', error);
+      Alert.alert('Error', 'Failed to update notification settings. Please try again.');
+    }
+  };
+
+  const handleTimeConfirm = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (selectedTime) {
+      setTime(selectedTime);
     }
   };
 
@@ -96,23 +182,23 @@ export default function Notifications() {
         days: selectedDays,
         repeat,
         alarm,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
       
       await AsyncStorage.setItem('readingTimerSchedule', JSON.stringify(schedule));
       
-      // Schedule notification
+      // Schedule all notifications first
       await scheduleReadingTimerNotification(schedule);
+      
+      // Show success alert
+      const daysText = selectedDays.length === 1 
+        ? selectedDays[0]
+        : `${selectedDays.slice(0, -1).join(', ')} and ${selectedDays[selectedDays.length - 1]}`;
       
       Alert.alert(
         'Schedule Saved!',
-        'Your reading timer notifications have been scheduled successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
+        `Your reading timer notifications have been scheduled for ${daysText} at ${formatTime(time)}.`,
+        [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error) {
       console.error('Failed to save schedule:', error);
@@ -197,15 +283,7 @@ export default function Notifications() {
             </Text>
             <Switch
               value={notificationsEnabled}
-              onValueChange={async (value) => {
-                if (value) {
-                  const hasPermission = await requestNotificationPermissions();
-                  setNotificationsEnabled(hasPermission);
-                } else {
-                  setNotificationsEnabled(false);
-                  await cancelAllScheduledNotifications();
-                }
-              }}
+              onValueChange={handleNotificationToggle}
               trackColor={{ false: theme.colors.divider, true: theme.colors.primary }}
               thumbColor={notificationsEnabled ? '#FFFFFF' : theme.colors.text.tertiary}
             />
@@ -218,11 +296,23 @@ export default function Notifications() {
               <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
                 Reminder Time
               </Text>
-              <TouchableOpacity style={styles.timeSelector}>
+              <TouchableOpacity 
+                style={styles.timeSelector}
+                onPress={() => setShowTimePicker(true)}
+              >
                 <Text style={[styles.timeText, { color: theme.colors.text.primary }]}>
                   {formatTime(time)}
                 </Text>
               </TouchableOpacity>
+
+              {showTimePicker && (
+                <DateTimePickerModal
+                  mode="time"
+                  value={time}
+                  onChange={handleTimeConfirm}
+                  display="spinner"
+                />
+              )}
             </View>
 
             <View style={[styles.section, { backgroundColor: theme.colors.background.card }]}>
@@ -252,7 +342,7 @@ export default function Notifications() {
 
             <View style={[styles.section, { backgroundColor: theme.colors.background.card }]}>
               <View style={styles.settingRow}>
-                <View>
+                <View style={styles.settingTextContainer}>
                   <Text style={[styles.settingLabel, { color: theme.colors.text.primary }]}>
                     Repeat Weekly
                   </Text>
@@ -271,7 +361,7 @@ export default function Notifications() {
 
             <View style={[styles.section, { backgroundColor: theme.colors.background.card }]}>
               <View style={styles.settingRow}>
-                <View>
+                <View style={styles.settingTextContainer}>
                   <Text style={[styles.settingLabel, { color: theme.colors.text.primary }]}>
                     Sound Alert
                   </Text>
@@ -350,6 +440,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
+    overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 18,
@@ -358,15 +449,23 @@ const styles = StyleSheet.create({
   },
   sectionDescription: {
     fontSize: 14,
+    marginTop: 2,
   },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    minHeight: 50,
   },
   settingLabel: {
     fontSize: 16,
     fontWeight: '500',
+    marginBottom: 4,
+  },
+  settingTextContainer: {
+    flex: 1,
+    marginRight: SPACING.lg,
+    paddingVertical: 2,
   },
   timeSelector: {
     padding: SPACING.md,

@@ -1,15 +1,17 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import * as JournalStorage from '../../services/journalStorage';
 import { SPACING } from '../../styles/theme';
-import { getStreakMessage, ReadingStreak } from '../../utils/streakUtils';
+import { getStreakMessage, updateReadingStreak } from '../../utils/streakUtils';
 
 export default function Journal() {
   const { theme } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
   const [notes, setNotes] = useState('');
@@ -33,6 +35,11 @@ export default function Journal() {
       Alert.alert('Missing Title', 'Please enter a book title.');
       return;
     }
+
+    if (!user) {
+      Alert.alert('Error', 'You must be signed in to create a journal entry.');
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -49,16 +56,12 @@ export default function Journal() {
         mood: undefined, // Can be added later via edit
       };
       
-      // Get existing entries and add the new one
-      const existingEntries = await AsyncStorage.getItem('journalEntries');
-      const entries = existingEntries ? JSON.parse(existingEntries) : [];
-      entries.push(journalEntry);
+      // Save entry using JournalStorage service
+      await JournalStorage.saveJournalEntry(journalEntry, user.id, user.provider === 'guest');
       
-      await AsyncStorage.setItem('journalEntries', JSON.stringify(entries));
-      
-      // Update reading streak
+      // Update reading streak using the utility function
       const updatedStreak = await updateReadingStreak();
-      const streakMessage = getStreakMessage(updatedStreak as unknown as ReadingStreak);
+      const streakMessage = getStreakMessage(updatedStreak);
       
       // Show success message with streak info
       Alert.alert(
@@ -79,80 +82,6 @@ export default function Journal() {
     }
   };
   
-  const updateReadingStreak = async () => {
-    try {
-      const today = new Date().toDateString();
-      const streakData = await AsyncStorage.getItem('readingStreak');
-      let streak = streakData ? JSON.parse(streakData) : { currentStreak: 0, longestStreak: 0, lastReadDate: null };
-      
-      const lastReadDate = streak.lastReadDate ? new Date(streak.lastReadDate).toDateString() : null;
-      
-      if (lastReadDate === today) {
-        // Already read today, don't increment
-        return;
-      }
-      
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayString = yesterday.toDateString();
-      
-      if (lastReadDate === yesterdayString) {
-        // Consecutive day
-        streak.currentStreak += 1;
-      } else {
-        // New streak
-        streak.currentStreak = 1;
-      }
-      
-      streak.longestStreak = Math.max(streak.longestStreak, streak.currentStreak);
-      streak.lastReadDate = new Date().toISOString();
-      
-      await AsyncStorage.setItem('readingStreak', JSON.stringify(streak));
-    } catch (error) {
-      console.error('Error updating reading streak:', error);
-    }
-  };
-  
-  const showStreakMessage = async () => {
-    try {
-      const streakData = await AsyncStorage.getItem('readingStreak');
-      const streak = streakData ? JSON.parse(streakData) : { currentStreak: 1, longestStreak: 1 };
-      
-      let message = `Great job! You've completed a ${formatDuration(totalDuration)} reading session.`;
-      
-      if (streak.currentStreak === 1) {
-        message += '\n\nYou\'ve started a new reading streak! 🔥';
-      } else {
-        message += `\n\nYour current reading streak: ${streak.currentStreak} days! 🔥`;
-      }
-      
-      if (streak.currentStreak === streak.longestStreak && streak.currentStreak > 1) {
-        message += '\n\nThis is your longest streak yet! 🎉';
-      }
-      
-      Alert.alert(
-        'Session Saved!',
-        message,
-        [
-          {
-            text: 'Go to Dashboard',
-            onPress: () => router.push('/dashboard'),
-          },
-        ]
-      );
-    } catch (error) {
-      Alert.alert(
-        'Session Saved!',
-        'Your reading session has been saved successfully.',
-        [
-          {
-            text: 'Go to Dashboard',
-            onPress: () => router.push('/dashboard'),
-          },
-        ]
-      );
-    }
-  };
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.dark }]}>

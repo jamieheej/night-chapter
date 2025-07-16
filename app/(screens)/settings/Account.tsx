@@ -4,11 +4,53 @@ import { Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'r
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { SPACING } from '../../styles/theme';
+import { deleteAccount } from '../../utils/accountUtils';
 
 export default function Account() {
   const { theme } = useTheme();
   const { user, signOut, upgradeToPremium } = useAuth();
   const router = useRouter();
+
+  const handleDeleteAccount = async () => {
+    // Show confirmation dialog
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This will permanently delete all your data from both this device and the cloud.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccount();
+            } catch (error) {
+              if (error instanceof Error && error.message.includes('reauthenticate')) {
+                Alert.alert(
+                  'Authentication Required',
+                  'For security reasons, please sign out and sign in again before deleting your account.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Sign Out',
+                      onPress: async () => await signOut()
+                      
+                    },
+                  ]
+                );
+              } else {
+                Alert.alert('Error', error instanceof Error ? error.message : 'Failed to delete account');
+              }
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   const handleBack = () => {
     router.back();
@@ -23,31 +65,29 @@ export default function Account() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            router.replace('/(screens)/auth/SignIn');
-          },
+          onPress: async () => await signOut()
         },
       ]
     );
   };
 
-  const handleUpgradeToPremium = () => {
-    Alert.alert(
-      'Upgrade to Premium',
-      'Unlock cloud sync, advanced analytics, and more features for $6.99',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Upgrade',
-          onPress: async () => {
-            await upgradeToPremium();
-            Alert.alert('Success!', 'Welcome to NightChapter Premium!');
-          },
-        },
-      ]
-    );
-  };
+  // TBD: Disable premium for now
+  // const handleUpgradeToPremium = () => {
+  //   Alert.alert(
+  //     'Upgrade to Premium',
+  //     'Unlock cloud sync, advanced analytics, and more features for $6.99',
+  //     [
+  //       { text: 'Cancel', style: 'cancel' },
+  //       {
+  //         text: 'Upgrade',
+  //         onPress: async () => {
+  //           await upgradeToPremium();
+  //           Alert.alert('Success!', 'Welcome to NightChapter Premium!');
+  //         },
+  //       },
+  //     ]
+  //   );
+  // };
 
   if (!user) return null;
 
@@ -80,7 +120,8 @@ export default function Account() {
           )}
         </View>
 
-        {!user.isPremium && (
+        {/* TBD: Disable premium for now */}
+        {/* {!user.isPremium && (
           <TouchableOpacity
             style={[styles.upgradeButton, { backgroundColor: theme.colors.primary }]}
             onPress={handleUpgradeToPremium}
@@ -92,7 +133,7 @@ export default function Account() {
               Cloud sync • Advanced analytics • Priority support
             </Text>
           </TouchableOpacity>
-        )}
+        )} */}
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
@@ -101,10 +142,10 @@ export default function Account() {
           
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: theme.colors.background.card }]}
-            onPress={() => {/* TODO: Export data */}}
+            onPress={handleDeleteAccount}
           >
             <Text style={[styles.actionButtonText, { color: theme.colors.text.primary }]}>
-              Export Reading Data
+              Delete Account
             </Text>
           </TouchableOpacity>
 

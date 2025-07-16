@@ -1,27 +1,46 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { SPACING } from '../styles/theme';
+import { getReadingStats, ReadingStats } from '../utils/readingStats';
 import { getReadingStreak, ReadingStreak } from '../utils/streakUtils';
 
 export default function DashboardScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const [streak, setStreak] = useState<ReadingStreak | null>(null);
+  const [stats, setStats] = useState<ReadingStats | null>(null);
 
-  useEffect(() => {
-    loadStreak();
-  }, []);
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
 
-  const loadStreak = async () => {
-    try {
-      const currentStreak = await getReadingStreak();
-      setStreak(currentStreak);
-    } catch (error) {
-      console.error('Error loading streak:', error);
-    }
-  };
+      const loadDataSafely = async () => {
+        try {
+          const [currentStreak, readingStats] = await Promise.all([
+            getReadingStreak(),
+            getReadingStats(),
+          ]);
+          
+          if (isActive) {
+            setStreak(currentStreak);
+            setStats(readingStats);
+          }
+        } catch (error) {
+          console.error('Error loading data:', error);
+        }
+      };
+
+      loadDataSafely();
+
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
 
   const handleStartReadingSession = () => {
     router.push('/(screens)/reading/Timer');
@@ -45,19 +64,41 @@ export default function DashboardScreen() {
           Your mindful reading companion for better sleep.
         </Text>
         
-        {streak && (
-          <View style={[styles.streakCard, { backgroundColor: theme.colors.background.card }]}>
-            <Text style={[styles.streakTitle, { color: theme.colors.text.primary }]}>
-              Reading Streak 🔥
-            </Text>
-            <Text style={[styles.streakCurrent, { color: theme.colors.primary }]}>
-              {streak.currentStreak} {streak.currentStreak === 1 ? 'day' : 'days'}
-            </Text>
-            <Text style={[styles.streakLongest, { color: theme.colors.text.secondary }]}>
-              Longest: {streak.longestStreak} {streak.longestStreak === 1 ? 'day' : 'days'}
-            </Text>
-          </View>
-        )}
+        <View style={styles.statsContainer}>
+          {streak && (
+            <View style={[styles.statsCard, { backgroundColor: theme.colors.background.card }]}>
+              <View style={styles.statsContent}>
+                <Text style={[styles.statsTitle, { color: theme.colors.text.primary }]}>
+                  Reading Streak
+                </Text>
+                <Text style={[styles.statsPrimary, { color: theme.colors.primary }]}>
+                  {streak.currentStreak} {streak.currentStreak === 1 ? 'day' : 'days'}
+                </Text>
+                <Text style={[styles.statsSecondary, { color: theme.colors.text.secondary }]}>
+                  Longest: {streak.longestStreak} {streak.longestStreak === 1 ? 'day' : 'days'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {stats && (
+            <View style={[styles.statsCard, { backgroundColor: theme.colors.background.card }]}>
+              <View style={styles.statsContent}>
+                <Text style={[styles.statsTitle, { color: theme.colors.text.primary }]}>
+                  Reading Time
+                </Text>
+                <Text style={[styles.statsPrimary, { color: theme.colors.primary }]}>
+                  {stats.totalMinutes} min
+                </Text>
+                <Text style={[styles.statsSecondary, { color: theme.colors.text.secondary }]}>
+                  {stats.totalSessions} {stats.totalSessions === 1 ? 'session' : 'sessions'}
+                  {' • '}
+                  Avg {stats.averageSessionLength === 0 ? '< 1' : stats.averageSessionLength} min
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
 
         <View style={styles.cardContainer}>
           <TouchableOpacity 
@@ -118,6 +159,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: SPACING.xl,
   },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: SPACING.lg,
+    marginBottom: SPACING.xl,
+    paddingHorizontal: SPACING.sm,
+  },
+  statsCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: SPACING.lg,
+    minHeight: 140,
+    justifyContent: 'center',
+  },
+  statsContent: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  statsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: SPACING.md,
+    textAlign: 'center',
+    lineHeight: 20,
+    width: '100%',
+  },
+  statsPrimary: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+    width: '100%',
+  },
+  statsSecondary: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    width: '100%',
+  },
   cardContainer: {
     marginTop: SPACING.lg,
   },
@@ -132,25 +211,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   cardDescription: {
-    fontSize: 14,
-  },
-  streakCard: {
-    borderRadius: 12,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-    alignItems: 'center',
-  },
-  streakTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-  },
-  streakCurrent: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: SPACING.xs,
-  },
-  streakLongest: {
     fontSize: 14,
   },
 }); 

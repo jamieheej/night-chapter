@@ -7,14 +7,33 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow users to read and write their own journal entries
+    // Allow users to read, write, and delete their own journal entries
     match /users/{userId}/journals/{journalId} {
-      allow read, write: if isOwner(userId);
+      allow read, write, delete: if isOwner(userId);
     }
     
-    // Allow users to read and write their own user profile
+    // Allow users to read, write, and delete their own user profile
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write, delete: if isOwner(userId);
+      // Allow access to all subcollections under user document
+      match /{allChildren=**} {
+        allow read, write, delete: if isOwner(userId);
+      }
+    }
+
+    // Allow users to manage their own sessions
+    match /sessions/{userId} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    // Allow users to manage their own streaks
+    match /streaks/{userId} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    // Allow users to manage their own settings
+    match /settings/{userId} {
+      allow read, write, delete: if isOwner(userId);
     }
     
     // Deny access to all other documents by default
