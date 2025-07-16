@@ -41,7 +41,9 @@ export const deleteAccount = async (): Promise<void> => {
     await Promise.all(STORAGE_KEYS.map((key) => AsyncStorage.removeItem(key)));
 
     // Reset navigation to the sign in screen
-    router.replace("/(auth)/SignIn");
+    console.log("Deleting account- redirecting to sign in");
+    router.dismissAll();
+    router.push("/");
   } catch (error) {
     console.error("Error deleting account:", error);
     throw new Error("Failed to delete account. Please try again.");

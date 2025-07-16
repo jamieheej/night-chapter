@@ -15,12 +15,16 @@ import {
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { auth } from '../firebase/config';
 import * as JournalStorage from '../services/journalStorage';
+import { syncFromFirebase, syncToFirebase } from '../services/syncService';
 
 // Configure Google Sign-In
 GoogleSignin.configure({
   iosClientId: '317821380334-e4f00v7sune7r2tt3len5flo0qak11gt.apps.googleusercontent.com',
   webClientId: '317821380334-b46b3qi81a4dlof59jmdnfk63gtu7mgr.apps.googleusercontent.com',
 });
+
+// Storage key for auth persistence
+const AUTH_USER_KEY = 'auth_user';
 
 export interface User {
   id: string;
@@ -48,6 +52,28 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Set up periodic sync
+  useEffect(() => {
+    let syncInterval: NodeJS.Timeout;
+
+    if (user && user.provider !== 'guest') {
+      // Sync every 5 minutes if user is authenticated
+      syncInterval = setInterval(async () => {
+        try {
+          await syncToFirebase(user.id);
+        } catch (error) {
+          console.error('Periodic sync error:', error);
+        }
+      }, 5 * 60 * 1000); // 5 minutes
+    }
+
+    return () => {
+      if (syncInterval) {
+        clearInterval(syncInterval);
+      }
+    };
+  }, [user]);
 
   useEffect(() => {
     // Listen to Firebase auth state changes
@@ -83,6 +109,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isPremium: false, // TODO: Check from Firestore
     };
 
+    // Store auth user data separately from guest user data
+    await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+
     // Check if there was a guest user and migrate their data
     const storedUser = await AsyncStorage.getItem('user');
     if (storedUser) {
@@ -90,9 +119,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (previousUser.provider === 'guest') {
         try {
           await JournalStorage.migrateGuestEntriesToFirestore(userData.id);
+          // Also sync local data to Firebase
+          await syncToFirebase(userData.id);
         } catch (error) {
           console.error('Error migrating guest data:', error);
         }
+      }
+    } else {
+      // New sign in, sync data from Firebase
+      try {
+        await syncFromFirebase(userData.id);
+      } catch (error) {
+        console.error('Error syncing from Firebase:', error);
       }
     }
 
@@ -101,10 +139,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loadStoredUser = async () => {
     try {
+      // First try to load authenticated user
+      const authUser = await AsyncStorage.getItem(AUTH_USER_KEY);
+      if (authUser) {
+        const userData = JSON.parse(authUser);
+        setUser(userData);
+        return;
+      }
+
+      // If no auth user, check for guest user
       const storedUser = await AsyncStorage.getItem('user');
       if (storedUser) {
         const userData = JSON.parse(storedUser);
-        // Only load guest users from storage, Firebase users are handled above
         if (userData.provider === 'guest') {
           setUser(userData);
         }
@@ -116,7 +162,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const saveUser = async (userData: User) => {
     try {
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      if (userData.provider === 'guest') {
+        await AsyncStorage.setItem('user', JSON.stringify(userData));
+      } else {
+        await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+      }
       setUser(userData);
     } catch (error) {
       console.error('Error saving user:', error);
@@ -212,8 +262,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signOut = async () => {
     try {
-      if (user?.provider !== 'guest') {
+      if (user && user.provider !== 'guest') {
+        // Sync to Firebase before signing out
+        await syncToFirebase(user.id);
         await firebaseSignOut(auth);
+        // Clear authenticated user data
+        await AsyncStorage.removeItem(AUTH_USER_KEY);
       }
       await AsyncStorage.removeItem('user');
       setUser(null);

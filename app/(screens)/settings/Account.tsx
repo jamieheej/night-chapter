@@ -30,7 +30,10 @@ export default function Account() {
               Alert.alert(
                 'Account Deleted',
                 'Your account and all associated data have been permanently deleted.',
-                [{ text: 'OK', onPress: () => router.replace('/(auth)/SignIn') }]
+                [{ text: 'OK', onPress: () => {
+                  console.log("OnPress OK");
+                  // router.replace('/');
+                } }]
               );
             } catch (error) {
               if (error instanceof Error && error.message.includes('reauthenticate')) {
@@ -43,7 +46,8 @@ export default function Account() {
                       text: 'Sign Out',
                       onPress: async () => {
                         await signOut();
-                        router.replace('/(auth)/SignIn');
+                        console.log("OnPress SignOut");
+//                        router.replace('/(auth)/SignIn');
                       },
                     },
                   ]
